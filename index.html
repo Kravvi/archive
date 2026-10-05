@@ -927,9 +927,8 @@
     var WESERV      = 'https://images.weserv.nl/';
 
     /**
-     * Собирает URL миниатюры через images.weserv.nl.
-     * Сервис забирает фото из GitHub, ресайзит и отдаёт WebP.
-     * В репозитории фотография остаётся в одном экземпляре.
+     * Уменьшенная версия для сетки карусели и галерей.
+     * Отдаётся weserv как WebP, вес 40–80 КБ вместо мегабайтов.
      */
     function thumbUrl(category, filename, width) {
       var raw = 'raw.githubusercontent.com/' + REPO_USER + '/' + REPO_NAME +
@@ -940,8 +939,8 @@
     }
 
     /**
-     * Прямая ссылка на файл в репозитории (fallback и/или
-     * использование, если weserv недоступен).
+     * Прямая ссылка на оригинал в репозитории — используется
+     * в Lightbox (полное разрешение) и как fallback.
      */
     function localUrl(category, filename) {
       return 'images/' + category + '/' + encodeURIComponent(filename);
@@ -978,16 +977,17 @@
     function filesToImages(category, files) {
       if (!Array.isArray(files)) return [];
 
-      // Ширина для сетки и для карусели home разная.
       var gridW = (category === 'home') ? 500 : 700;
+      var original = localUrl;
 
       return files.map(function (name) {
         return {
           id:       category + '/' + name,
           name:     name,
           thumbUrl: thumbUrl(category, name, gridW),
-          fullUrl:  thumbUrl(category, name, 1600),
-          localUrl: localUrl(category, name)
+          // Lightbox: полное разрешение, оригинал из репозитория.
+          fullUrl:  original(category, name),
+          localUrl: original(category, name)
         };
       });
     }
@@ -1076,12 +1076,11 @@
     /* ==========================================================
        HOME — тайминги и состояние
        ========================================================== */
-    var LOOP_MS          = 3600;   // длина одного цикла loopFocus
-    var RETURN_MS        = 1300;   // длительность возврата на позицию
-    var MAX_LOAD_WAIT_MS = 6000;   // страховой таймаут загрузки карусели
-    var EARLY_SETTLE_COUNT = 8;    // settle после N загруженных картинок
+    var LOOP_MS          = 3600;    // длина одного цикла loopFocus
+    var RETURN_MS        = 1300;    // длительность возврата
+    var MAX_LOAD_WAIT_MS = 20000;   // страховочный таймаут полной загрузки
 
-    var homeBooted = false;
+    var homeBooted  = false;
     var wordSettled = false;
     var homeStart   = 0;
 
@@ -1123,9 +1122,9 @@
     }
 
     /**
-     * Планирует settle так, чтобы он попал в начало видимой фазы
-     * цикла loopFocus и происходил ПОСЛЕ хотя бы одного полного цикла.
-     * Никакого «зависания» между анимацией и возвратом.
+     * Планирует settle так, чтобы момент возврата приходился на
+     * начало/середину видимой фазы цикла loopFocus. Слово не
+     * «зависает» без анимации — возврат идёт сразу после появления.
      */
     function trySettle() {
       if (wordSettled) return;
@@ -1133,11 +1132,11 @@
 
       var elapsed = performance.now() - homeStart;
 
-      // Видимая фаза loopFocus: 30% – 70% цикла (1080–2520 мс).
+      // Видимая фаза loopFocus: 30% – 70% цикла.
       var visibleStart = LOOP_MS * 0.30;
       var visibleEnd   = LOOP_MS * 0.60;
 
-      // Не даём settle сработать раньше одного полного цикла.
+      // Settle не раньше одного полного цикла — ждём хотя бы одну итерацию.
       var minTarget = Math.max(LOOP_MS, elapsed);
       var cyclePos  = minTarget % LOOP_MS;
 
@@ -1145,13 +1144,12 @@
       if (cyclePos <= visibleStart) {
         offset = visibleStart - cyclePos;
       } else if (cyclePos < visibleEnd) {
-        offset = 0; // уже в видимой фазе
+        offset = 0;
       } else {
         offset = (LOOP_MS - cyclePos) + visibleStart;
       }
 
       var target = minTarget + offset;
-      // Верхняя граница — 2 цикла.
       if (target > LOOP_MS * 2) target = LOOP_MS * 2;
 
       var wait = Math.max(0, target - elapsed);
@@ -1210,12 +1208,6 @@
         trySettle();
       }
 
-      function markDone() {
-        loadedImages++;
-        if (loadedImages >= EARLY_SETTLE_COUNT) trySettle();
-        if (loadedImages >= totalImages) onAllLoaded();
-      }
-
       for (var col = 0; col < COLUMNS; col++) {
         var columnImages = chunks[col] || [];
         var doubled = columnImages.concat(columnImages);
@@ -1235,6 +1227,7 @@
           img.dataset.done = '0';
           img.dataset.retried = '0';
 
+          // Первая картинка в колонке — важнее для первой отрисовки.
           if (idx === 0) {
             img.setAttribute('fetchpriority', 'high');
           } else {
@@ -1244,7 +1237,9 @@
           var done = function () {
             if (img.dataset.done === '1') return;
             img.dataset.done = '1';
-            markDone();
+            loadedImages++;
+            // Settle только после полной загрузки всех картинок.
+            if (loadedImages >= totalImages) onAllLoaded();
           };
 
           img.onload = done;
@@ -1254,7 +1249,7 @@
               return;
             }
             img.dataset.retried = '1';
-            // Откат на прямой файл, если weserv не ответил
+            // Откат на прямой файл, если weserv не ответил.
             if (imgData.localUrl) {
               img.src = imgData.localUrl;
             } else {
@@ -1269,6 +1264,7 @@
         bgCarousel.appendChild(columnDiv);
       }
 
+      // Страховка: если что-то висит — через 20 сек всё равно settle.
       setTimeout(onAllLoaded, MAX_LOAD_WAIT_MS);
     }
 
@@ -1527,7 +1523,11 @@
       return -1;
     }
 
-    function createCell(area, image, imageIndex, order) {
+    /**
+     * @param eager {boolean} — грузить сразу (для первых видимых фото),
+     *                         иначе — только когда попадёт в viewport.
+     */
+    function createCell(area, image, imageIndex, order, eager) {
       var cell = document.createElement('figure');
       cell.className = 'cell';
       if (area) cell.style.gridArea = area;
@@ -1537,7 +1537,12 @@
       var photo = document.createElement('img');
       photo.alt = '';
       photo.decoding = 'async';
-      photo.loading = 'lazy';
+      photo.loading = eager ? 'eager' : 'lazy';
+      if (eager) {
+        photo.setAttribute('fetchpriority', 'high');
+      } else {
+        photo.setAttribute('fetchpriority', 'low');
+      }
 
       var loadedScheduled = false;
       function scheduleLoaded() {
@@ -1567,7 +1572,6 @@
         scheduleLoaded();
       });
       photo.addEventListener('error', function () {
-        // Если weserv не ответил — пробуем прямой файл из репозитория.
         if (photo.dataset.fallback === '1') {
           cell.style.display = 'none';
           return;
@@ -1619,8 +1623,19 @@
       return { buckets: buckets, all: all };
     }
 
+    /**
+     * Сколько первых ячеек делать eager. При 4 колонках — 8,
+     * при 2 колонках — 4. Этого достаточно, чтобы покрыть
+     * первый экран и дождаться boot-лоадера до его скрытия.
+     */
+    function getEagerCount() {
+      var columns = getColumns();
+      return columns * 2;
+    }
+
     function renderUniform() {
       var columns = getColumns();
+      var eager = getEagerCount();
       var section = document.createElement('section');
       section.className = 'section';
 
@@ -1629,7 +1644,10 @@
         var row = Math.floor(i / columns) + 1;
         var col = (i % columns) + 1;
         var area = row + '/' + col + '/' + (row + 1) + '/' + (col + 1);
-        section.appendChild(createCell(area, IMAGES[i], i, order++));
+        section.appendChild(
+          createCell(area, IMAGES[i], i, order, i < eager)
+        );
+        order++;
       }
       assignVisualOrder(section);
       galleryEl.appendChild(section);
@@ -1650,6 +1668,8 @@
 
       var used = new Set();
       var sectionIndex = 0;
+      var placed = 0;
+      var eagerLimit = getEagerCount();
 
       while (used.size < IMAGES.length) {
         var name = CYCLE[sectionIndex % CYCLE.length];
@@ -1665,8 +1685,15 @@
           if (imgIdx === -1) break;
           used.add(imgIdx);
           section.appendChild(
-            createCell(area, IMAGES[imgIdx], imgIdx, i)
+            createCell(
+              area,
+              IMAGES[imgIdx],
+              imgIdx,
+              i,
+              placed < eagerLimit
+            )
           );
+          placed++;
         }
 
         assignVisualOrder(section);
@@ -1730,6 +1757,43 @@
       }
 
       buildVisualOrder();
+    }
+
+    /**
+     * Ждёт загрузки первых N изображений или общий таймаут.
+     * Используется для того, чтобы boot-лоадер не исчезал,
+     * пока первые видимые фото не готовы.
+     */
+    function waitForFirstImages(count, timeoutMs) {
+      var imgs = galleryEl.querySelectorAll('.cell img');
+      var max = Math.min(count, imgs.length);
+      if (max <= 0) return Promise.resolve();
+
+      var pending = [];
+      for (var i = 0; i < max; i++) {
+        (function (img) {
+          if (img.complete && img.naturalWidth > 0) return;
+          pending.push(new Promise(function (resolve) {
+            var done = function () {
+              img.removeEventListener('load', done);
+              img.removeEventListener('error', done);
+              resolve();
+            };
+            img.addEventListener('load', done);
+            img.addEventListener('error', done);
+          }));
+        })(imgs[i]);
+      }
+
+      if (!pending.length) return Promise.resolve();
+
+      var loadAll = Promise.all(pending);
+      if (!timeoutMs) return loadAll;
+
+      var timeout = new Promise(function (resolve) {
+        setTimeout(resolve, timeoutMs);
+      });
+      return Promise.race([loadAll, timeout]);
     }
 
     function activateSections() {
@@ -1796,7 +1860,6 @@
       lbNext.classList.toggle('hidden', atEnd);
     }
 
-    // Предзагрузка соседних изображений с откатом на прямые файлы.
     function preloadImageAt(index) {
       if (index < 0 || index >= VISUAL_ORDER.length) return;
       var im = IMAGES[VISUAL_ORDER[index]];
@@ -1855,10 +1918,11 @@
         });
       }
 
+      // Lightbox грузит ОРИГИНАЛ (полное разрешение).
       var loader = new Image();
       loader.onload = function () { applyImage(loader.src); };
       loader.onerror = function () {
-        // Откат на прямую ссылку
+        // На случай, если оригинал не отдался — пробуем локальную ссылку.
         var fallback = new Image();
         fallback.onload = function () { applyImage(fallback.src); };
         fallback.onerror = function () { applyImage(imageData.localUrl); };
@@ -2028,6 +2092,7 @@
 
       activeKey = key;
 
+      // -------- Из кэша --------
       if (CACHE[key]) {
         var cachedArr = CACHE[key];
         IMAGES = cachedArr;
@@ -2047,6 +2112,7 @@
         return;
       }
 
+      // -------- Первая загрузка --------
       showBoot();
       galleryEl.innerHTML = '';
 
@@ -2069,8 +2135,14 @@
         orientations = buildOrientationsFromCache(arr, cached);
 
         renderGrid();
-        hideBoot();
-        activateSections();
+
+        // Ждём загрузки первых видимых фото — только потом прячем boot.
+        var eager = getEagerCount();
+        waitForFirstImages(eager, 6000).then(function () {
+          if (activeKey !== key) return;
+          hideBoot();
+          activateSections();
+        });
       }).catch(function (err) {
         console.error('fetchGallery error:', err);
         if (activeKey !== key) return;
