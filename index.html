@@ -6,7 +6,7 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
   >
-  <title>Архив</title>
+  <title>Архив фоторабот</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -920,7 +920,7 @@
     /* ==========================================================
        МАНИФЕСТ ИЗОБРАЖЕНИЙ (загружается с GitHub Pages)
        ========================================================== */
-    var MANIFEST = null;   // { home: [...], women: [...], ... }
+    var MANIFEST = null;
     var manifestReady = false;
 
     function loadManifest() {
@@ -1046,7 +1046,12 @@
     var LOOP_MS          = 3600;
     var PEAK_MS          = 2100;
     var RETURN_MS        = 1300;
-    var MAX_LOAD_WAIT_MS = 30000;
+    // Раньше было 30000 — пользователь ждал появления кнопок до 30 сек.
+    // Теперь 6 сек — этого достаточно, чтобы первые кадры появились.
+    var MAX_LOAD_WAIT_MS = 6000;
+    // Раньше settle запускался только когда загружены ВСЕ ~90 картинок.
+    // Теперь — когда загрузились первые 8.
+    var EARLY_SETTLE_COUNT = 8;
 
     var homeBooted = false;
     var wordSettled = false;
@@ -1152,6 +1157,14 @@
         trySettle();
       }
 
+      function markDone() {
+        loadedImages++;
+        // Ранний триггер: как только загрузилось EARLY_SETTLE_COUNT —
+        // больше не ждём остальные картинки, показываем кнопки.
+        if (loadedImages >= EARLY_SETTLE_COUNT) trySettle();
+        if (loadedImages >= totalImages) onAllLoaded();
+      }
+
       for (var col = 0; col < COLUMNS; col++) {
         var columnImages = chunks[col] || [];
         var doubled = columnImages.concat(columnImages);
@@ -1162,7 +1175,7 @@
         var contentDiv = document.createElement('div');
         contentDiv.className = 'carousel-content';
 
-        doubled.forEach(function (imgData) {
+        doubled.forEach(function (imgData, idx) {
           var img = document.createElement('img');
           var baseUrl = imgData.thumbUrl;
 
@@ -1171,16 +1184,23 @@
           img.dataset.done = '0';
           img.dataset.retried = '0';
 
-          var markDone = function () {
+          // Первая картинка в каждой колонке — высокий приоритет.
+          // Остальные — низкий, чтобы не забивать канал.
+          if (idx === 0) {
+            img.setAttribute('fetchpriority', 'high');
+          } else {
+            img.setAttribute('fetchpriority', 'low');
+          }
+
+          var done = function () {
             if (img.dataset.done === '1') return;
             img.dataset.done = '1';
-            loadedImages++;
-            if (loadedImages >= totalImages) onAllLoaded();
+            markDone();
           };
 
-          img.onload = markDone;
+          img.onload = done;
           img.onerror = function () {
-            markDone();
+            done();
             if (img.dataset.retried === '1') return;
             img.dataset.retried = '1';
             setTimeout(function () { img.src = baseUrl + '?retry=1'; }, 2000);
@@ -1321,6 +1341,25 @@
       } catch (e) { /* ignore */ }
     }
 
+    // Ориентация сохраняется не сразу — батчами раз в 1.5 сек,
+    // чтобы не долбить localStorage при каждой загрузке картинки.
+    var oriSaveTimer = null;
+    function scheduleSaveOrientationCache() {
+      if (oriSaveTimer) clearTimeout(oriSaveTimer);
+      oriSaveTimer = setTimeout(function () {
+        if (!activeKey) return;
+        var map = {};
+        var any = false;
+        for (var i = 0; i < IMAGES.length; i++) {
+          if (orientations[i] !== undefined) {
+            map[IMAGES[i].id] = orientations[i];
+            any = true;
+          }
+        }
+        if (any) saveOrientationCache(activeKey, map);
+      }, 1500);
+    }
+
     /* ==========================================================
        GALLERY — утилиты
        ========================================================== */
@@ -1345,12 +1384,6 @@
 
     function setCellSize() {
       galleryEl.style.setProperty('--cell', getCellSize() + 'px');
-    }
-
-    function smallUrl(url) {
-      // В новой системе уменьшенная версия не требуется —
-      // браузер загружает тот же файл (lazy loading).
-      return url;
     }
 
     function getSlotType(area) {
@@ -1417,28 +1450,6 @@
     }
 
     /* ==========================================================
-       GALLERY — ориентации
-       ========================================================== */
-    function preloadOrientations(images) {
-      return Promise.all(images.map(function (image) {
-        return new Promise(function (resolve) {
-          var probe = new Image();
-          probe.onload = function () {
-            var w = probe.naturalWidth;
-            var h = probe.naturalHeight;
-            if (!w || !h) { resolve('H'); return; }
-            var ratio = w / h;
-            if (ratio > 1.15) resolve('H');
-            else if (ratio < 0.87) resolve('V');
-            else resolve('S');
-          };
-          probe.onerror = function () { resolve('H'); };
-          probe.src = smallUrl(image.thumbUrl);
-        });
-      }));
-    }
-
-    /* ==========================================================
        GALLERY — сетка
        ========================================================== */
     function chooseImage(type, buckets, all, used) {
@@ -1472,6 +1483,9 @@
       var photo = document.createElement('img');
       photo.alt = '';
       photo.decoding = 'async';
+      // КЛЮЧЕВОЕ: браузер сам решает, когда грузить эту картинку.
+      // Пока картинка далеко за пределами экрана — она не грузится.
+      photo.loading = 'lazy';
 
       var loadedScheduled = false;
       function scheduleLoaded() {
@@ -1484,13 +1498,31 @@
         });
       }
 
-      photo.addEventListener('load', scheduleLoaded);
+      // Определяем ориентацию прямо из загруженной картинки —
+      // больше не нужен отдельный probe через new Image().
+      function captureOrientation() {
+        if (orientations[imageIndex] !== undefined) return;
+        var w = photo.naturalWidth;
+        var h = photo.naturalHeight;
+        if (!w || !h) return;
+        var ratio = w / h;
+        if (ratio > 1.15) orientations[imageIndex] = 'H';
+        else if (ratio < 0.87) orientations[imageIndex] = 'V';
+        else orientations[imageIndex] = 'S';
+        scheduleSaveOrientationCache();
+      }
+
+      photo.addEventListener('load', function () {
+        captureOrientation();
+        scheduleLoaded();
+      });
       photo.addEventListener('error', function () {
         cell.style.display = 'none';
       });
 
       photo.src = image.thumbUrl;
       if (photo.complete && photo.naturalWidth) {
+        captureOrientation();
         scheduleLoaded();
       }
 
@@ -1529,24 +1561,6 @@
         else if (o === 'S') buckets.s.push(idx);
       });
       return { buckets: buckets, all: all };
-    }
-
-    function waitForGridImages() {
-      var imgs = galleryEl.querySelectorAll('.cell img');
-      var pending = [];
-      Array.prototype.forEach.call(imgs, function (img) {
-        if (img.complete && img.naturalWidth > 0) return;
-        pending.push(new Promise(function (resolve) {
-          var done = function () {
-            img.removeEventListener('load', done);
-            img.removeEventListener('error', done);
-            resolve();
-          };
-          img.addEventListener('load', done);
-          img.addEventListener('error', done);
-        }));
-      });
-      return Promise.all(pending);
     }
 
     function renderUniform() {
@@ -1864,7 +1878,6 @@
         }
 
         if (key === 'family') {
-          // Папка «Семейные фото» не создаётся — возвращаем пустой список.
           resolve([]);
           return;
         }
@@ -1872,8 +1885,6 @@
         var files = (MANIFEST && MANIFEST[key]) || [];
         var arr = filesToImages(key, files);
 
-        // Числовая сортировка по имени файла (на случай, если
-        // манифест сгенерирован без неё).
         arr.sort(function (a, b) {
           return a.name.localeCompare(b.name, undefined, {
             numeric: true,
@@ -1890,27 +1901,6 @@
         var v = cached && cached[img.id];
         return (v === 'H' || v === 'V' || v === 'S') ? v : undefined;
       });
-    }
-
-    function hasUnknownOrientation() {
-      for (var i = 0; i < orientations.length; i++) {
-        if (orientations[i] === undefined) return true;
-      }
-      return false;
-    }
-
-    function scheduleBackgroundOrientationsLoad(key, arr) {
-      if (!hasUnknownOrientation()) return;
-
-      preloadOrientations(arr).then(function (ori) {
-        var map = {};
-        arr.forEach(function (img, i) {
-          map[img.id] = orientations[i] !== undefined
-            ? orientations[i]
-            : ori[i];
-        });
-        saveOrientationCache(key, map);
-      }).catch(function () { /* silent */ });
     }
 
     /* ==========================================================
@@ -1950,11 +1940,13 @@
 
       activeKey = key;
 
+      // -------- Из кэша --------
       if (CACHE[key]) {
         var cachedArr = CACHE[key];
         IMAGES = cachedArr;
 
         if (!cachedArr.length) {
+          hideBoot();
           renderEmpty();
           return;
         }
@@ -1963,14 +1955,14 @@
         orientations = buildOrientationsFromCache(cachedArr, cachedOris);
 
         renderGrid();
-        waitForGridImages().then(function () {
-          if (activeKey !== key) return;
-          activateSections();
-        });
-        scheduleBackgroundOrientationsLoad(key, cachedArr);
+        hideBoot();
+        // Раньше ждали загрузки ВСЕХ картинок. Теперь — сразу.
+        // Картинки с loading="lazy" подгружаются по мере прокрутки.
+        activateSections();
         return;
       }
 
+      // -------- Первая загрузка --------
       showBoot();
       galleryEl.innerHTML = '';
 
@@ -1993,17 +1985,8 @@
         orientations = buildOrientationsFromCache(arr, cached);
 
         renderGrid();
-
-        waitForGridImages().then(function () {
-          if (activeKey !== key) return;
-          hideBoot();
-          requestAnimationFrame(function () {
-            if (activeKey !== key) return;
-            activateSections();
-          });
-        });
-
-        scheduleBackgroundOrientationsLoad(key, arr);
+        hideBoot();
+        activateSections();
       }).catch(function (err) {
         console.error('fetchGallery error:', err);
         if (activeKey !== key) return;
