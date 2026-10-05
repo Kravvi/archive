@@ -676,7 +676,7 @@
         transform .5s var(--ease);
     }
 
-    /* Лоадер внутри Lightbox — плавное появление с размытием,
+    /* Лоадер внутри Lightbox: плавное появление с размытием,
        без чёрного фона. */
     .lb-loader {
       position: absolute;
@@ -688,6 +688,7 @@
       opacity: 0;
       filter: blur(10px);
       pointer-events: none;
+      will-change: opacity, filter;
       transition:
         opacity .55s var(--ease),
         filter .55s var(--ease);
@@ -953,9 +954,6 @@
     var REPO_BRANCH = 'main';
     var WESERV      = 'https://images.weserv.nl/';
 
-    /**
-     * Уменьшенная версия для сетки карусели и галерей.
-     */
     function thumbUrl(category, filename, width) {
       var raw = 'raw.githubusercontent.com/' + REPO_USER + '/' + REPO_NAME +
                 '/' + REPO_BRANCH + '/images/' + category + '/' +
@@ -964,10 +962,6 @@
              '&w=' + width + '&q=75&output=webp&fit=inside';
     }
 
-    /**
-     * Прямая ссылка на оригинал в репозитории — Lightbox
-     * открывает фото в полном разрешении.
-     */
     function localUrl(category, filename) {
       return 'images/' + category + '/' + encodeURIComponent(filename);
     }
@@ -1376,11 +1370,10 @@
     var TRANSFORM_MS  = 2100;
     var SETTLE_BUFFER = 400;
 
-    // Минимальное время показа boot-лоадера галерей.
-    var BOOT_MIN_MS = 500;
-    // Задержка перед появлением лоадера в Lightbox.
-    // Не даёт лоадеру мелькать, когда фото уже в кэше браузера.
-    var LB_LOADER_DELAY_MS = 250;
+    // Минимальное время показа boot-лоадера галерей — 1 секунда.
+    var BOOT_MIN_MS = 1000;
+    // Задержка перед показом лоадера в Lightbox — 1 секунда.
+    var LB_LOADER_DELAY_MS = 1000;
 
     /* ==========================================================
        GALLERY — состояние
@@ -1405,6 +1398,7 @@
     function scheduleLbLoader() {
       if (lbLoaderTimer) clearTimeout(lbLoaderTimer);
       lbLoaderTimer = setTimeout(function () {
+        lbLoaderTimer = null;
         lbLoader.classList.add('on');
       }, LB_LOADER_DELAY_MS);
     }
@@ -1925,7 +1919,7 @@
       lightbox.classList.add('on');
       document.body.style.overflow = 'hidden';
 
-      // Лоадер появится, только если фото не загрузится за 250 мс.
+      // Лоадер появится, только если фото не загрузится за 1 секунду.
       scheduleLbLoader();
 
       var imgIdx = VISUAL_ORDER[pos];
@@ -1956,6 +1950,10 @@
         fallback.src = imageData.localUrl;
       };
       loader.src = imageData.fullUrl;
+      // Если фото уже в кэше браузера — не ждём события load.
+      if (loader.complete && loader.naturalWidth > 0) {
+        applyImage(loader.src);
+      }
 
       preloadNeighborsAtPos(pos);
     }
@@ -1981,7 +1979,7 @@
       renderCounter();
       updateNavButtons();
 
-      // Лоадер появится, если фото не загрузится за 250 мс.
+      // Лоадер появится, если новое фото не загрузится за 1 секунду.
       scheduleLbLoader();
 
       var imgIdx = VISUAL_ORDER[nextPos];
@@ -2126,10 +2124,7 @@
 
       activeKey = key;
 
-      /**
-       * Скрывает boot не раньше, чем через BOOT_MIN_MS с момента
-       * открытия галереи — чтобы анимация загрузки всегда была видна.
-       */
+      // Скрывает boot не раньше, чем через BOOT_MIN_MS (1 сек).
       function finalizeHide() {
         var elapsed = performance.now() - startedAt;
         var remain = Math.max(0, BOOT_MIN_MS - elapsed);
@@ -2191,7 +2186,6 @@
 
         renderGrid();
 
-        // Ждём загрузки первых видимых фото и минимум BOOT_MIN_MS.
         var eager = getEagerCount();
         waitForFirstImages(eager, 6000).then(function () {
           if (activeKey !== key) return;
