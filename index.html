@@ -1,0 +1,2184 @@
+<!DOCTYPE html>
+<html lang="ru" style="background:#000;">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+  >
+  <title>Архив</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap"
+  >
+
+  <style>
+    /* ============================================================
+       BASE
+       ============================================================ */
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --muted: rgba(255,255,255,.48);
+      --line: rgba(255,255,255,.16);
+      --glass: rgba(255,255,255,.08);
+      --glass-hover: rgba(255,255,255,.13);
+      --gap: 14px;
+      --cols: 4;
+      --cell: 100px;
+      --ease: cubic-bezier(.22,1,.36,1);
+      --ease-img: cubic-bezier(.19,1,.22,1);
+      --browser-inset: 0px;
+      --fab-h: 112px;
+      --extra-inset: 0px;
+    }
+
+    @media (max-width:700px) {
+      :root {
+        --cols: 2;
+        --gap: 9px;
+        --fab-h: 100px;
+      }
+    }
+
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .view { width: 100%; }
+    .view[hidden] { display: none !important; }
+
+    /* ============================================================
+       BOOT LOADER
+       ============================================================ */
+    .boot {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 50%, #0a0a0a 0%, #000 65%);
+      transition: opacity .6s var(--ease);
+    }
+
+    .boot.off {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity .6s var(--ease), visibility 0s linear .6s;
+    }
+
+    .loader {
+      width: 65px;
+      aspect-ratio: 1;
+      position: relative;
+    }
+
+    .loader::before,
+    .loader::after {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      aspect-ratio: 1;
+      border-radius: 50px;
+      box-shadow: 0 0 0 3px inset #fff;
+      animation: loaderFocus 1.1s cubic-bezier(.5,0,.5,1) infinite alternate;
+      will-change: width, filter, opacity, box-shadow;
+    }
+
+    .loader::after {
+      inset: auto 0 0 auto;
+      animation-delay: -.55s;
+    }
+
+    @keyframes loaderFocus {
+      0% {
+        width: 20px;
+        filter: blur(2.6px);
+        opacity: .22;
+        box-shadow:
+          0 0 0 3px inset rgba(255,255,255,.85),
+          0 0 4px rgba(255,255,255,.04);
+      }
+      100% {
+        width: 50px;
+        filter: blur(0);
+        opacity: 1;
+        box-shadow:
+          0 0 0 3px inset #fff,
+          0 0 26px rgba(255,255,255,.28),
+          0 0 60px rgba(255,255,255,.08);
+      }
+    }
+
+    @media (max-width:700px) {
+      .loader { width: 54px; }
+    }
+
+    /* ============================================================
+       HOME — фоновая карусель
+       ============================================================ */
+    #view-home {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    .bg-carousel {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: stretch;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+      overflow: hidden;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+
+    .bg-carousel.loaded { opacity: 1; }
+
+    .carousel-column {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .carousel-content {
+      display: flex;
+      flex-direction: column;
+      animation-duration: 50s;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+
+    @keyframes scrollUp {
+      0%   { transform: translateY(0); }
+      100% { transform: translateY(-50%); }
+    }
+    @keyframes scrollDown {
+      0%   { transform: translateY(-50%); }
+      100% { transform: translateY(0); }
+    }
+
+    .carousel-column:nth-child(odd)  .carousel-content { animation-name: scrollUp; }
+    .carousel-column:nth-child(even) .carousel-content { animation-name: scrollDown; }
+
+    .carousel-content img {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #1a1a1a;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+    .overlay.loaded { opacity: 1; }
+
+    /* ============================================================
+       HOME — контент
+       ============================================================ */
+    .content {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2vw;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .main-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 1100px;
+      will-change: transform;
+    }
+
+    .center-word {
+      display: inline-flex;
+      justify-content: center;
+      align-items: baseline;
+      font-family: 'Roboto', sans-serif;
+      font-weight: 500;
+      font-synthesis: none;
+      font-size: clamp(3rem, 14.5vw, 14.5rem);
+      line-height: 1;
+      margin-bottom: 6px;
+      gap: .08em;
+      white-space: nowrap;
+    }
+
+    .center-word .letter {
+      display: inline-block;
+      opacity: 0;
+      filter: blur(22px);
+      transform: scale(1.35);
+      will-change: filter, opacity, transform;
+    }
+
+    .center-word.loading .letter {
+      animation: loopFocus 3.6s ease-in-out infinite;
+    }
+    .center-word.loading .letter:nth-child(1) { animation-delay: 0s; }
+    .center-word.loading .letter:nth-child(2) { animation-delay: .15s; }
+    .center-word.loading .letter:nth-child(3) { animation-delay: .30s; }
+    .center-word.loading .letter:nth-child(4) { animation-delay: .45s; }
+    .center-word.loading .letter:nth-child(5) { animation-delay: .60s; }
+
+    @keyframes loopFocus {
+      0%   { opacity: 0; filter: blur(22px); transform: scale(1.35); }
+      30%  { opacity: 1; filter: blur(0);    transform: scale(1); }
+      70%  { opacity: 1; filter: blur(0);    transform: scale(1); }
+      100% { opacity: 0; filter: blur(22px); transform: scale(1.35); }
+    }
+
+    .center-word.settled .letter {
+      opacity: 1;
+      filter: blur(0);
+      transform: scale(1);
+    }
+
+    .top-text {
+      font-size: clamp(12px, 1.4vw, 20px);
+      line-height: 1.5;
+      letter-spacing: .05em;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+      margin-bottom: 12px;
+    }
+    .top-text.visible { opacity: 1; }
+
+    .bottom-text {
+      font-size: clamp(12px, 1.15vw, 18px);
+      letter-spacing: .05em;
+      line-height: 1.5;
+      color: #939397;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+      margin-bottom: 28px;
+    }
+    .bottom-text.visible { opacity: 1; }
+
+    .buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+    .buttons-container.visible { opacity: 1; }
+
+    .glass-btn {
+      padding: 12px 28px;
+      font-size: clamp(14px, 1vw, 18px);
+      font-family: inherit;
+      color: #fff;
+      background: rgba(255,255,255,.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 0;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all .25s ease;
+      letter-spacing: .03em;
+      user-select: none;
+      will-change: transform, opacity, backdrop-filter;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      box-shadow:
+        0 4px 20px rgba(0,0,0,.2),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      text-align: center;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .glass-btn:hover {
+      transform: scale(1.04) translateY(-3px) translateZ(0);
+      background: rgba(255,255,255,.12);
+      box-shadow:
+        0 12px 40px rgba(0,0,0,.4),
+        inset 0 1px 0 rgba(255,255,255,.15);
+      color: #fff;
+    }
+
+    .glass-btn:focus { outline: none; }
+    .glass-btn:active { transform: scale(.97) translateZ(0); }
+
+    @media (max-width:768px) {
+      .top-text    { font-size: clamp(13px, 2.6vw, 17px); }
+      .bottom-text { font-size: clamp(11px, 2.2vw, 15px); }
+      .main-group  { padding: 0 4vw; }
+      .glass-btn   { padding: 10px 22px; }
+    }
+
+    @media (max-width:480px) {
+      .buttons-container { gap: 10px; }
+      .glass-btn { padding: 9px 18px; font-size: clamp(12px, 2vw, 15px); }
+      .center-word { font-size: clamp(3rem, 15vw, 7rem); }
+    }
+
+    @media (max-width:700px) {
+      .center-word { margin-bottom: 4px; }
+      .top-text    { margin-bottom: 8px; }
+      .bottom-text { margin-bottom: 18px; }
+    }
+
+    /* ============================================================
+       GALLERY — шапка
+       ============================================================ */
+    .gallery-header {
+      width: 100%;
+      padding: 42px var(--gap) 34px;
+    }
+
+    .gallery-header-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    .gallery-category,
+    .gallery-number {
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 1.5;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .gallery-number {
+      white-space: nowrap;
+      letter-spacing: .08em;
+      text-align: right;
+    }
+
+    .gallery-line {
+      width: 100%;
+      height: 1px;
+      margin-top: 28px;
+      background: var(--line);
+    }
+
+    @media (max-width:700px) {
+      .gallery-header { padding: 28px var(--gap) 26px; }
+      .gallery-line { margin-top: 22px; }
+      .gallery-number { max-width: 150px; white-space: normal; }
+    }
+
+    /* ============================================================
+       GALLERY — сетка
+       ============================================================ */
+    .gallery {
+      width: 100%;
+      padding: 0 var(--gap) var(--gap);
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+
+    .section {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+      grid-auto-rows: var(--cell);
+      gap: var(--gap);
+    }
+
+    .cell {
+      position: relative;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    .cell.settled {
+      overflow: hidden;
+    }
+
+    .cell img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      opacity: 0;
+      filter: blur(24px);
+      transform: translateY(64px) scale(1.06);
+      transition:
+        opacity 1.3s var(--ease),
+        filter 1.9s var(--ease-img),
+        transform 2.1s var(--ease-img);
+      transition-delay: calc(var(--i, 0) * 90ms);
+      will-change: transform, opacity;
+    }
+
+    .section.in .cell img.loaded {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0) scale(1);
+    }
+
+    .cell.settled img.loaded {
+      transition:
+        opacity .45s var(--ease),
+        filter .55s var(--ease),
+        transform .55s var(--ease);
+      transition-delay: 0s;
+    }
+
+    .cell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 1px solid transparent;
+      pointer-events: none;
+      transition: border-color .8s var(--ease);
+    }
+
+    @media (hover:hover) and (pointer:fine) {
+      .cell.settled:hover img.loaded {
+        transform: scale(1.05);
+        filter:
+          brightness(1.06)
+          contrast(1.03)
+          saturate(1.04);
+        transition:
+          transform .55s cubic-bezier(.22,1,.36,1),
+          filter .55s cubic-bezier(.22,1,.36,1);
+        transition-delay: 0s;
+      }
+      .cell.settled:hover::after { border-color: rgba(255,255,255,.2); }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      .cell img {
+        opacity: 1; filter: none; transform: none;
+        transition: none; transition-delay: 0s;
+      }
+      .section.in .cell img.loaded {
+        opacity: 1; filter: none; transform: none;
+      }
+    }
+
+    .empty {
+      padding: 100px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: .35em;
+      text-transform: uppercase;
+    }
+
+    /* ============================================================
+       FAB
+       ============================================================ */
+    .fab {
+      position: fixed;
+      right: var(--gap);
+      bottom: calc(
+        var(--gap)
+        + env(safe-area-inset-bottom, 0px)
+        + var(--browser-inset, 0px)
+        + var(--extra-inset, 0px)
+      );
+      z-index: 400;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .fab button,
+    .lb-control {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      color: var(--fg);
+      background: var(--glass);
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-backdrop-filter: blur(12px) saturate(140%);
+      backdrop-filter: blur(12px) saturate(140%);
+      box-shadow:
+        0 4px 20px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      transition:
+        background .3s var(--ease),
+        transform .3s var(--ease),
+        opacity .25s var(--ease),
+        box-shadow .3s var(--ease);
+    }
+
+    .fab button.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(6px);
+    }
+
+    .lb-control.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @media (hover:hover) and (pointer:fine) {
+      .fab button:hover,
+      .lb-control:hover {
+        background: var(--glass-hover);
+        transform: translateY(-3px) scale(1.04);
+        box-shadow:
+          0 12px 40px rgba(0,0,0,.5),
+          inset 0 1px 0 rgba(255,255,255,.15);
+      }
+    }
+
+    .fab button.pressed,
+    .lb-close.pressed { transform: scale(.96); }
+
+    .lb-prev.pressed,
+    .lb-next.pressed { transform: translateY(-50%) scale(.96); }
+
+    @media (max-width:700px) {
+      .fab button,
+      .lb-control { width: 44px; height: 44px; }
+    }
+
+    svg { display: block; }
+
+    /* ============================================================
+       LIGHTBOX
+       ============================================================ */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,.84);
+      opacity: 0;
+      pointer-events: none;
+      -webkit-backdrop-filter: blur(28px) saturate(120%);
+      backdrop-filter: blur(28px) saturate(120%);
+      transition: opacity .75s var(--ease);
+    }
+
+    .lightbox.on {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .lightbox-image {
+      position: relative;
+      z-index: 1;
+      display: block;
+      max-width: 92vw;
+      max-height: 88vh;
+      object-fit: contain;
+      opacity: 0;
+      filter: blur(32px);
+      transform: translateX(0) scale(1.02);
+      box-shadow: 0 40px 120px rgba(0,0,0,.85);
+      will-change: opacity, filter, transform;
+      transition:
+        opacity .6s var(--ease),
+        filter 1.1s var(--ease),
+        transform .8s var(--ease);
+    }
+
+    .lightbox.ready .lightbox-image {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateX(0) scale(1);
+    }
+
+    .lightbox.leaving-left .lightbox-image {
+      opacity: 0;
+      filter: blur(32px);
+      transform: translateX(-80px) scale(1.02);
+      transition:
+        opacity .45s var(--ease),
+        filter .5s var(--ease),
+        transform .5s var(--ease);
+    }
+
+    .lightbox.leaving-right .lightbox-image {
+      opacity: 0;
+      filter: blur(32px);
+      transform: translateX(80px) scale(1.02);
+      transition:
+        opacity .45s var(--ease),
+        filter .5s var(--ease),
+        transform .5s var(--ease);
+    }
+
+    .lb-control {
+      position: absolute;
+      z-index: 3;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+    }
+
+    .lb-close {
+      top: calc(var(--gap) + env(safe-area-inset-top, 0px));
+      right: var(--gap);
+    }
+
+    .lb-prev {
+      top: 50%;
+      left: var(--gap);
+      transform: translateY(-50%);
+    }
+    .lb-next {
+      top: 50%;
+      right: var(--gap);
+      transform: translateY(-50%);
+    }
+
+    @media (hover:hover) and (pointer:fine) {
+      .lb-prev:hover,
+      .lb-next:hover { transform: translateY(calc(-50% - 3px)) scale(1.04); }
+      .lb-close:hover { transform: translateY(-3px) scale(1.04); }
+    }
+
+    .lb-counter {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      bottom: calc(
+        var(--gap)
+        + env(safe-area-inset-bottom, 0px)
+        + var(--browser-inset, 0px)
+        + var(--extra-inset, 0px)
+      );
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 18px;
+      color: var(--fg);
+      background: var(--glass);
+      font-family: monospace;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .35em;
+      text-indent: .35em;
+      user-select: none;
+      -webkit-backdrop-filter: blur(12px) saturate(140%);
+      backdrop-filter: blur(12px) saturate(140%);
+      box-shadow:
+        0 4px 20px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .lb-counter .separator {
+      margin: 0 .5em;
+      opacity: .45;
+      text-indent: 0;
+    }
+
+    @media (max-width:700px) {
+      .lb-control { width: 44px; height: 44px; }
+      .lb-counter {
+        height: 32px;
+        padding: 0 14px;
+        border-radius: 16px;
+        font-size: 10px;
+      }
+    }
+
+    @supports (height: 100dvh) {
+      .fab {
+        bottom: auto;
+        top: calc(
+          100dvh
+          - var(--fab-h)
+          - var(--gap)
+          - env(safe-area-inset-bottom, 0px)
+          - var(--extra-inset, 0px)
+        );
+      }
+      .lb-counter {
+        bottom: auto;
+        top: calc(
+          100dvh
+          - 36px
+          - var(--gap)
+          - env(safe-area-inset-bottom, 0px)
+          - var(--extra-inset, 0px)
+        );
+      }
+    }
+
+    body.ff-android .fab {
+      bottom: auto;
+      top: calc(
+        100dvh
+        - var(--fab-h)
+        - var(--gap)
+        - var(--extra-inset)
+      );
+    }
+    body.ff-android .lb-counter {
+      bottom: auto;
+      top: calc(
+        100dvh
+        - 36px
+        - var(--gap)
+        - var(--extra-inset)
+      );
+    }
+  </style>
+</head>
+
+<body style="visibility:hidden;background:#000;">
+
+  <!-- ============================================================
+       VIEW: HOME
+       ============================================================ -->
+  <section id="view-home" class="view">
+    <div class="bg-carousel" id="bgCarousel"></div>
+    <div class="overlay" id="overlay"></div>
+
+    <div class="content">
+      <div class="main-group" id="mainGroup">
+        <div class="center-word" id="archiveWord" aria-label="АРХИВ">
+          <span class="letter">А</span>
+          <span class="letter">Р</span>
+          <span class="letter">Х</span>
+          <span class="letter">И</span>
+          <span class="letter">В</span>
+        </div>
+
+        <div class="top-text" id="topText">
+          Фотохудожника Александра Кравви
+        </div>
+
+        <div class="bottom-text" id="bottomText">
+          собран из снимков<br>
+          за период с 2015г. по 2022г.
+        </div>
+
+        <div class="buttons-container" id="buttonsContainer">
+          <button class="glass-btn" data-gallery="women">Женские фото</button>
+          <button class="glass-btn" data-gallery="men">Мужские фото</button>
+          <button class="glass-btn" data-gallery="white">Белые фото</button>
+          <button class="glass-btn" data-gallery="kids">Детские фото</button>
+          <button class="glass-btn" data-gallery="model">Модельные тесты</button>
+          <button class="glass-btn" data-gallery="nature">Узоры природы</button>
+          <button class="glass-btn" data-gallery="coffee">Кофе</button>
+          <button class="glass-btn" data-gallery="misc">Разное</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VIEW: GALLERY
+       ============================================================ -->
+  <section id="view-gallery" class="view" hidden>
+    <header class="gallery-header">
+      <div class="gallery-header-top">
+        <div class="gallery-category" id="galleryCategory">Архив</div>
+        <div class="gallery-number">2015 - 2022</div>
+      </div>
+      <div class="gallery-line"></div>
+    </header>
+
+    <main class="gallery" id="gallery"></main>
+
+    <div class="fab">
+      <button id="fabTop" class="hidden" title="Наверх" aria-label="Наверх">
+        <svg width="18" height="18" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      </button>
+
+      <button id="fabHome" title="На главную" aria-label="На главную">
+        <svg width="18" height="18" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div class="lightbox" id="lightbox">
+      <button class="lb-control lb-close" id="lbClose" aria-label="Закрыть">
+        <svg width="18" height="18" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <button class="lb-control lb-prev" id="lbPrev" aria-label="Предыдущее фото">
+        <svg width="18" height="18" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      <button class="lb-control lb-next" id="lbNext" aria-label="Следующее фото">
+        <svg width="18" height="18" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <img class="lightbox-image" id="lbImage" src="" alt="">
+
+      <div class="lb-counter" id="lbCounter"></div>
+    </div>
+  </section>
+
+  <div class="boot off" id="boot" aria-hidden="true">
+    <div class="loader"></div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ==========================================================
+       МАНИФЕСТ ИЗОБРАЖЕНИЙ (загружается с GitHub Pages)
+       ========================================================== */
+    var MANIFEST = null;   // { home: [...], women: [...], ... }
+    var manifestReady = false;
+
+    function loadManifest() {
+      return fetch('manifest.json', { cache: 'no-cache' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('manifest.json ' + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          MANIFEST = data || {};
+          manifestReady = true;
+          return MANIFEST;
+        })
+        .catch(function (err) {
+          console.error('Не удалось загрузить manifest.json:', err);
+          MANIFEST = {};
+          manifestReady = true;
+          return MANIFEST;
+        });
+    }
+
+    /* ==========================================================
+       ПРЕОБРАЗОВАНИЕ СПИСКА ФАЙЛОВ В ОБЪЕКТЫ
+       ========================================================== */
+    function filesToImages(category, files) {
+      if (!Array.isArray(files)) return [];
+      return files.map(function (name) {
+        var encoded = encodeURIComponent(name);
+        var base = 'images/' + category + '/' + encoded;
+        return {
+          id:       category + '/' + name,
+          name:     name,
+          thumbUrl: base,
+          fullUrl:  base
+        };
+      });
+    }
+
+    /* ==========================================================
+       КАРУСЕЛЬ ГЛАВНОЙ
+       ========================================================== */
+    var HOME_IMAGES = [];
+
+    function getHomeImages() {
+      if (!MANIFEST || !MANIFEST.home) return [];
+      return filesToImages('home', MANIFEST.home);
+    }
+
+    /* ==========================================================
+       РОУТЫ
+       ========================================================== */
+    var ROUTES = {
+      '/':       { view: 'home',    key: 'home' },
+      '/women':  { view: 'gallery', key: 'women',  title: 'Женские фото' },
+      '/men':    { view: 'gallery', key: 'men',    title: 'Мужские фото' },
+      '/white':  { view: 'gallery', key: 'white',  title: 'Белые фото' },
+      '/kids':   { view: 'gallery', key: 'kids',   title: 'Детские фото' },
+      '/model':  { view: 'gallery', key: 'model',  title: 'Модельные тесты' },
+      '/nature': { view: 'gallery', key: 'nature', title: 'Узоры природы' },
+      '/family': { view: 'gallery', key: 'family', title: 'Семейные фото' },
+      '/coffee': { view: 'gallery', key: 'coffee', title: 'Кофе' },
+      '/misc':   { view: 'gallery', key: 'misc',   title: 'Разное' }
+    };
+
+    /* ==========================================================
+       FOUC
+       ========================================================== */
+    var bodyRevealed = false;
+    function revealBody() {
+      if (bodyRevealed) return;
+      bodyRevealed = true;
+      document.body.style.visibility = 'visible';
+    }
+    setTimeout(revealBody, 4000);
+
+    /* ==========================================================
+       FIREFOX ANDROID
+       ========================================================== */
+    (function detectFirefoxAndroid() {
+      var ua = navigator.userAgent || '';
+      var isFF = /Firefox\/\d+/.test(ua);
+      var isAndroid = /Android/i.test(ua);
+      if (!(isFF && isAndroid)) return;
+
+      var value = '86px';
+      document.documentElement.style.setProperty('--extra-inset', value);
+      document.documentElement.classList.add('ff-android');
+      if (document.body) document.body.classList.add('ff-android');
+
+      document.addEventListener('DOMContentLoaded', function () {
+        document.body.classList.add('ff-android');
+        document.documentElement.style.setProperty('--extra-inset', value);
+      });
+    })();
+
+    /* ==========================================================
+       ЭЛЕМЕНТЫ
+       ========================================================== */
+    var viewHome    = document.getElementById('view-home');
+    var viewGallery = document.getElementById('view-gallery');
+    var galleryEl   = document.getElementById('gallery');
+    var galleryCategoryEl = document.getElementById('galleryCategory');
+    var bootEl      = document.getElementById('boot');
+    var fabTop      = document.getElementById('fabTop');
+
+    var lightbox    = document.getElementById('lightbox');
+    var lbImage     = document.getElementById('lbImage');
+    var lbCounter   = document.getElementById('lbCounter');
+    var lbPrev      = document.getElementById('lbPrev');
+    var lbNext      = document.getElementById('lbNext');
+
+    var wordEl      = document.getElementById('archiveWord');
+    var mainGroup   = document.getElementById('mainGroup');
+    var bgCarousel  = document.getElementById('bgCarousel');
+    var overlayEl   = document.getElementById('overlay');
+    var topTextEl   = document.getElementById('topText');
+    var bottomTextEl= document.getElementById('bottomText');
+    var buttonsEl   = document.getElementById('buttonsContainer');
+
+    /* ==========================================================
+       HOME — тайминги и состояние
+       ========================================================== */
+    var LOOP_MS          = 3600;
+    var PEAK_MS          = 2100;
+    var RETURN_MS        = 1300;
+    var MAX_LOAD_WAIT_MS = 30000;
+
+    var homeBooted = false;
+    var wordSettled = false;
+    var homeStart   = 0;
+
+    function centerWord() {
+      if (!wordEl || !mainGroup) return;
+      mainGroup.style.transform = 'none';
+      void mainGroup.offsetHeight;
+
+      var rect = wordEl.getBoundingClientRect();
+      if (rect.height === 0) return;
+      var wordCenterY = rect.top + rect.height / 2;
+
+      var vh = (window.visualViewport && window.visualViewport.height)
+             || window.innerHeight;
+      var offset = vh / 2 - wordCenterY;
+      mainGroup.style.transform = 'translateY(' + offset + 'px)';
+    }
+
+    function revealHomeBits() {
+      topTextEl.classList.add('visible');
+      bottomTextEl.classList.add('visible');
+      buttonsEl.classList.add('visible');
+      bgCarousel.classList.add('loaded');
+      overlayEl.classList.add('loaded');
+    }
+
+    function startWordAnimation() {
+      homeStart = performance.now();
+
+      centerWord();
+      revealBody();
+      wordEl.classList.add('loading');
+
+      requestAnimationFrame(function () {
+        if (!wordSettled) centerWord();
+      });
+      setTimeout(function () { if (!wordSettled) centerWord(); }, 100);
+      setTimeout(function () { if (!wordSettled) centerWord(); }, 400);
+    }
+
+    function trySettle() {
+      if (wordSettled) return;
+      wordSettled = true;
+
+      var elapsed = performance.now() - homeStart;
+      var cyclePos = elapsed % LOOP_MS;
+      var wait = PEAK_MS - cyclePos;
+      if (wait < 1500) wait += LOOP_MS;
+
+      setTimeout(function () {
+        wordEl.classList.remove('loading');
+        wordEl.classList.add('settled');
+
+        mainGroup.style.transition =
+          'transform ' + RETURN_MS + 'ms cubic-bezier(0.22, 1, 0.36, 1)';
+        void mainGroup.offsetWidth;
+        mainGroup.style.transform = 'translateY(0)';
+
+        revealHomeBits();
+      }, wait);
+    }
+
+    function initHomeCarousel() {
+      HOME_IMAGES = getHomeImages();
+
+      if (!HOME_IMAGES.length) {
+        console.warn('Карусель: нет изображений — использую заглушки');
+        for (var i = 0; i < 20; i++) {
+          HOME_IMAGES.push({
+            thumbUrl:
+              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" ' +
+              'width="600" height="600" viewBox="0 0 600 600"%3E%3Crect ' +
+              'width="600" height="600" fill="%23333"/%3E%3Ctext x="50%25" ' +
+              'y="50%25" font-size="30" fill="%23666" text-anchor="middle" ' +
+              'dominant-baseline="central"%3EФото%3C/text%3E%3C/svg%3E'
+          });
+        }
+      }
+
+      var COLUMNS = 4;
+      var CHUNK = Math.max(1, Math.ceil(HOME_IMAGES.length / COLUMNS));
+
+      var chunks = [];
+      for (var i = 0; i < HOME_IMAGES.length; i += CHUNK) {
+        chunks.push(HOME_IMAGES.slice(i, i + CHUNK));
+      }
+      while (chunks.length < COLUMNS) chunks.push([]);
+
+      var totalImages = 0;
+      var loadedImages = 0;
+      for (var c = 0; c < COLUMNS; c++) {
+        totalImages += (chunks[c] || []).length * 2;
+      }
+      if (totalImages === 0) totalImages = 1;
+
+      var allLoadedFlag = false;
+
+      function onAllLoaded() {
+        if (allLoadedFlag) return;
+        allLoadedFlag = true;
+        trySettle();
+      }
+
+      for (var col = 0; col < COLUMNS; col++) {
+        var columnImages = chunks[col] || [];
+        var doubled = columnImages.concat(columnImages);
+
+        var columnDiv = document.createElement('div');
+        columnDiv.className = 'carousel-column';
+
+        var contentDiv = document.createElement('div');
+        contentDiv.className = 'carousel-content';
+
+        doubled.forEach(function (imgData) {
+          var img = document.createElement('img');
+          var baseUrl = imgData.thumbUrl;
+
+          img.alt = '';
+          img.dataset.url = baseUrl;
+          img.dataset.done = '0';
+          img.dataset.retried = '0';
+
+          var markDone = function () {
+            if (img.dataset.done === '1') return;
+            img.dataset.done = '1';
+            loadedImages++;
+            if (loadedImages >= totalImages) onAllLoaded();
+          };
+
+          img.onload = markDone;
+          img.onerror = function () {
+            markDone();
+            if (img.dataset.retried === '1') return;
+            img.dataset.retried = '1';
+            setTimeout(function () { img.src = baseUrl + '?retry=1'; }, 2000);
+          };
+          img.src = baseUrl;
+          contentDiv.appendChild(img);
+        });
+
+        columnDiv.appendChild(contentDiv);
+        bgCarousel.appendChild(columnDiv);
+      }
+
+      setTimeout(onAllLoaded, MAX_LOAD_WAIT_MS);
+    }
+
+    async function bootHome() {
+      if (homeBooted) return;
+      homeBooted = true;
+
+      var fontReady = (async function () {
+        if (document.fonts && document.fonts.ready) {
+          try {
+            if (document.fonts.load) {
+              await document.fonts.load('500 100px Roboto');
+            }
+            await document.fonts.ready;
+          } catch (e) { /* ignore */ }
+        }
+      })();
+
+      await Promise.race([
+        fontReady,
+        new Promise(function (r) { setTimeout(r, 2000); })
+      ]);
+
+      initHomeCarousel();
+      startWordAnimation();
+    }
+
+    window.addEventListener('resize', function () {
+      if (!wordSettled && !viewHome.hidden) centerWord();
+    });
+
+    /* ==========================================================
+       GALLERY — ПАТТЕРНЫ
+       ========================================================== */
+
+    var PATTERNS_4 = {
+      A: ['1/1/2/2','1/2/3/3','1/3/2/5','2/1/3/2','2/3/3/4','2/4/3/5','3/1/4/2','3/2/4/3','3/3/4/4','3/4/4/5'],
+      B: ['1/1/2/2','1/2/2/3','1/3/2/5','2/1/3/2','2/2/3/3','2/3/3/4','2/4/3/5','3/1/4/3','3/3/4/4','3/4/4/5'],
+      C: ['1/1/2/2','1/2/2/3','1/3/2/5','2/1/3/2','2/2/3/3','2/3/3/5','3/1/4/3','3/3/4/4','3/4/4/5']
+    };
+    var PATTERNS_2 = {
+      A: ['1/1/2/2','1/2/2/3','2/1/3/3','3/1/4/2','3/2/4/3'],
+      B: ['1/1/2/2','1/2/2/3','2/1/3/2','2/2/3/3','3/1/4/2','3/2/4/3'],
+      C: ['1/1/2/2','1/2/2/3','2/1/3/2','2/2/3/3','3/1/4/3']
+    };
+
+    var PATTERNS_4_V = {
+      A: [
+        '1/1/2/2',
+        '1/2/3/3',
+        '1/3/2/4',
+        '1/4/3/5',
+        '2/1/3/2',
+        '2/3/3/4',
+        '3/1/4/2',
+        '3/2/4/3',
+        '3/3/4/4',
+        '3/4/4/5'
+      ],
+      B: [
+        '1/1/3/2',
+        '1/2/2/3',
+        '1/3/2/4',
+        '1/4/3/5',
+        '2/2/3/3',
+        '2/3/3/4',
+        '3/1/4/2',
+        '3/2/4/3',
+        '3/3/4/4',
+        '3/4/4/5'
+      ],
+      C: [
+        '1/1/3/2',
+        '1/2/2/3',
+        '1/3/3/4',
+        '1/4/3/5',
+        '2/2/3/3',
+        '3/1/4/2',
+        '3/2/4/3',
+        '3/3/4/4',
+        '3/4/4/5'
+      ]
+    };
+    var PATTERNS_2_V = {
+      A: ['1/1/3/2','1/2/2/3','2/2/3/3','3/1/4/2','3/2/4/3'],
+      B: ['1/1/3/2','1/2/3/3','3/1/4/2','3/2/4/3'],
+      C: ['1/1/2/2','1/2/3/3','2/1/3/2','3/1/4/2','3/2/4/3']
+    };
+
+    var CYCLE = ['A', 'B', 'C'];
+    var NAV_MIN_MS = 620;
+
+    var CELL_DELAY_MS = 90;
+    var TRANSFORM_MS  = 2100;
+    var SETTLE_BUFFER = 400;
+
+    /* ==========================================================
+       GALLERY — состояние
+       ========================================================== */
+    var CACHE = {};
+    var IMAGES = [];
+    var orientations = [];
+
+    var VISUAL_ORDER = [];
+    var currentIndex = 0;
+
+    var currentColumns = 0;
+    var pendingPos = null;
+    var navigationBusy = false;
+    var resizeTimer = null;
+    var activeKey = null;
+    var sectionObserver = null;
+
+    function loadOrientationCache(key) {
+      try {
+        var raw = localStorage.getItem('ori_' + key);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (e) { return null; }
+    }
+
+    function saveOrientationCache(key, map) {
+      try {
+        localStorage.setItem('ori_' + key, JSON.stringify(map));
+      } catch (e) { /* ignore */ }
+    }
+
+    /* ==========================================================
+       GALLERY — утилиты
+       ========================================================== */
+    function getColumns() {
+      return parseInt(
+        getComputedStyle(galleryEl).getPropertyValue('--cols'), 10
+      ) || 4;
+    }
+
+    function getGap() {
+      return parseFloat(
+        getComputedStyle(galleryEl).getPropertyValue('--gap')
+      ) || 14;
+    }
+
+    function getCellSize() {
+      var columns = getColumns();
+      var gap = getGap();
+      var width = galleryEl.clientWidth;
+      return Math.max(40, (width - (columns + 1) * gap) / columns);
+    }
+
+    function setCellSize() {
+      galleryEl.style.setProperty('--cell', getCellSize() + 'px');
+    }
+
+    function smallUrl(url) {
+      // В новой системе уменьшенная версия не требуется —
+      // браузер загружает тот же файл (lazy loading).
+      return url;
+    }
+
+    function getSlotType(area) {
+      var v = area.split('/').map(Number);
+      var rows = v[2] - v[0];
+      var cols = v[3] - v[1];
+      if (rows > cols) return 'tall';
+      if (cols > rows) return 'wide';
+      return 'square';
+    }
+
+    function getAreaRowCol(area) {
+      var v = area.split('/').map(Number);
+      return { row: v[0], col: v[1] };
+    }
+
+    /* ==========================================================
+       GALLERY — классификация
+       ========================================================== */
+    function classifyOrientations() {
+      var total = orientations.length;
+      var h = 0, v = 0, s = 0, unknown = 0;
+      for (var i = 0; i < total; i++) {
+        var o = orientations[i];
+        if (o === 'H') h++;
+        else if (o === 'V') v++;
+        else if (o === 'S') s++;
+        else unknown++;
+      }
+      return { h: h, v: v, s: s, unknown: unknown, total: total };
+    }
+
+    function decideLayoutType() {
+      var st = classifyOrientations();
+      if (st.total === 0) return 'default';
+      if (st.unknown / st.total > 0.5) return 'default';
+
+      if (st.h === 0 && st.s >= st.total * 0.8) return 'uniform-square';
+
+      return 'default';
+    }
+
+    function shouldUseVerticalPatterns(columns) {
+      var st = classifyOrientations();
+      if (st.total === 0) return false;
+      if (st.unknown / st.total > 0.5) return false;
+      if (st.h === 0) return true;
+
+      var patterns = columns === 2 ? PATTERNS_2 : PATTERNS_4;
+      var cellsPerSection = columns === 2 ? 6 : 12;
+      var wideNeeded = 0;
+      var remaining = st.total;
+      var cycle = 0;
+      while (remaining > 0) {
+        var name = CYCLE[cycle % CYCLE.length];
+        var pattern = patterns[name];
+        for (var i = 0; i < pattern.length; i++) {
+          if (getSlotType(pattern[i]) === 'wide') wideNeeded++;
+        }
+        remaining -= cellsPerSection;
+        cycle++;
+      }
+      return st.h < wideNeeded;
+    }
+
+    /* ==========================================================
+       GALLERY — ориентации
+       ========================================================== */
+    function preloadOrientations(images) {
+      return Promise.all(images.map(function (image) {
+        return new Promise(function (resolve) {
+          var probe = new Image();
+          probe.onload = function () {
+            var w = probe.naturalWidth;
+            var h = probe.naturalHeight;
+            if (!w || !h) { resolve('H'); return; }
+            var ratio = w / h;
+            if (ratio > 1.15) resolve('H');
+            else if (ratio < 0.87) resolve('V');
+            else resolve('S');
+          };
+          probe.onerror = function () { resolve('H'); };
+          probe.src = smallUrl(image.thumbUrl);
+        });
+      }));
+    }
+
+    /* ==========================================================
+       GALLERY — сетка
+       ========================================================== */
+    function chooseImage(type, buckets, all, used) {
+      var preferred;
+      if (type === 'wide') {
+        preferred = buckets.h.concat(buckets.s).concat(buckets.v);
+      } else if (type === 'tall') {
+        preferred = buckets.v.concat(buckets.s).concat(buckets.h);
+      } else {
+        preferred = buckets.s.concat(buckets.v).concat(buckets.h);
+      }
+
+      for (var i = 0; i < preferred.length; i++) {
+        var idx = preferred[i];
+        if (!used.has(idx)) return idx;
+      }
+      for (var j = 0; j < all.length; j++) {
+        var aidx = all[j];
+        if (!used.has(aidx)) return aidx;
+      }
+      return -1;
+    }
+
+    function createCell(area, image, imageIndex, order) {
+      var cell = document.createElement('figure');
+      cell.className = 'cell';
+      if (area) cell.style.gridArea = area;
+      cell.style.setProperty('--i', order);
+      cell.dataset.index = imageIndex;
+
+      var photo = document.createElement('img');
+      photo.alt = '';
+      photo.decoding = 'async';
+
+      var loadedScheduled = false;
+      function scheduleLoaded() {
+        if (loadedScheduled) return;
+        loadedScheduled = true;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            photo.classList.add('loaded');
+          });
+        });
+      }
+
+      photo.addEventListener('load', scheduleLoaded);
+      photo.addEventListener('error', function () {
+        cell.style.display = 'none';
+      });
+
+      photo.src = image.thumbUrl;
+      if (photo.complete && photo.naturalWidth) {
+        scheduleLoaded();
+      }
+
+      cell.appendChild(photo);
+      cell.addEventListener('click', function () { openLightbox(imageIndex); });
+      return cell;
+    }
+
+    function assignVisualOrder(section) {
+      var cells = section.querySelectorAll('.cell');
+      if (!cells.length) return;
+      var arr = [];
+      for (var i = 0; i < cells.length; i++) {
+        var cell = cells[i];
+        var rc = getAreaRowCol(cell.style.gridArea);
+        arr.push({ cell: cell, row: rc.row, col: rc.col, order: i });
+      }
+      arr.sort(function (a, b) {
+        if (a.row !== b.row) return a.row - b.row;
+        if (a.col !== b.col) return a.col - b.col;
+        return a.order - b.order;
+      });
+      for (var k = 0; k < arr.length; k++) {
+        arr[k].cell.style.setProperty('--i', k);
+      }
+    }
+
+    function buildBuckets() {
+      var buckets = { h: [], v: [], s: [] };
+      var all = [];
+      IMAGES.forEach(function (_, idx) {
+        all.push(idx);
+        var o = orientations[idx];
+        if (o === 'H') buckets.h.push(idx);
+        else if (o === 'V') buckets.v.push(idx);
+        else if (o === 'S') buckets.s.push(idx);
+      });
+      return { buckets: buckets, all: all };
+    }
+
+    function waitForGridImages() {
+      var imgs = galleryEl.querySelectorAll('.cell img');
+      var pending = [];
+      Array.prototype.forEach.call(imgs, function (img) {
+        if (img.complete && img.naturalWidth > 0) return;
+        pending.push(new Promise(function (resolve) {
+          var done = function () {
+            img.removeEventListener('load', done);
+            img.removeEventListener('error', done);
+            resolve();
+          };
+          img.addEventListener('load', done);
+          img.addEventListener('error', done);
+        }));
+      });
+      return Promise.all(pending);
+    }
+
+    function renderUniform() {
+      var columns = getColumns();
+      var section = document.createElement('section');
+      section.className = 'section';
+
+      var order = 0;
+      for (var i = 0; i < IMAGES.length; i++) {
+        var row = Math.floor(i / columns) + 1;
+        var col = (i % columns) + 1;
+        var area = row + '/' + col + '/' + (row + 1) + '/' + (col + 1);
+        section.appendChild(createCell(area, IMAGES[i], i, order++));
+      }
+      assignVisualOrder(section);
+      galleryEl.appendChild(section);
+    }
+
+    function renderPatterned(columns) {
+      var useVertical = shouldUseVerticalPatterns(columns);
+      var patterns;
+      if (useVertical) {
+        patterns = columns === 2 ? PATTERNS_2_V : PATTERNS_4_V;
+      } else {
+        patterns = columns === 2 ? PATTERNS_2 : PATTERNS_4;
+      }
+
+      var data = buildBuckets();
+      var buckets = data.buckets;
+      var all = data.all;
+
+      var used = new Set();
+      var sectionIndex = 0;
+
+      while (used.size < IMAGES.length) {
+        var name = CYCLE[sectionIndex % CYCLE.length];
+        var pattern = patterns[name];
+        var section = document.createElement('section');
+        section.className = 'section';
+
+        for (var i = 0; i < pattern.length; i++) {
+          if (used.size >= IMAGES.length) break;
+          var area = pattern[i];
+          var type = getSlotType(area);
+          var imgIdx = chooseImage(type, buckets, all, used);
+          if (imgIdx === -1) break;
+          used.add(imgIdx);
+          section.appendChild(
+            createCell(area, IMAGES[imgIdx], imgIdx, i)
+          );
+        }
+
+        assignVisualOrder(section);
+
+        galleryEl.appendChild(section);
+        sectionIndex++;
+      }
+    }
+
+    function buildVisualOrder() {
+      VISUAL_ORDER = [];
+      var sections = galleryEl.querySelectorAll('.section');
+      for (var s = 0; s < sections.length; s++) {
+        var cells = sections[s].querySelectorAll('.cell');
+        var arr = [];
+        for (var i = 0; i < cells.length; i++) {
+          var cell = cells[i];
+          var idx = parseInt(cell.dataset.index, 10);
+          if (isNaN(idx)) continue;
+          var rc = getAreaRowCol(cell.style.gridArea || '1/1/2/2');
+          arr.push({
+            cell: cell,
+            index: idx,
+            row: rc.row,
+            col: rc.col,
+            domOrder: i
+          });
+        }
+        arr.sort(function (a, b) {
+          if (a.row !== b.row) return a.row - b.row;
+          if (a.col !== b.col) return a.col - b.col;
+          return a.domOrder - b.domOrder;
+        });
+        for (var k = 0; k < arr.length; k++) {
+          var pos = VISUAL_ORDER.length;
+          VISUAL_ORDER.push(arr[k].index);
+          arr[k].cell.dataset.pos = pos;
+        }
+      }
+    }
+
+    function positionOfImage(imageIndex) {
+      for (var i = 0; i < VISUAL_ORDER.length; i++) {
+        if (VISUAL_ORDER[i] === imageIndex) return i;
+      }
+      return -1;
+    }
+
+    function renderGrid() {
+      var columns = getColumns();
+      var layoutType = decideLayoutType();
+
+      currentColumns = columns;
+      setCellSize();
+      galleryEl.innerHTML = '';
+
+      if (layoutType === 'uniform-square') {
+        renderUniform();
+      } else {
+        renderPatterned(columns);
+      }
+
+      buildVisualOrder();
+    }
+
+    function activateSections() {
+      if (sectionObserver) {
+        sectionObserver.disconnect();
+        sectionObserver = null;
+      }
+
+      var sections = galleryEl.querySelectorAll('.section');
+      if (!sections.length) return;
+
+      if (!('IntersectionObserver' in window)) {
+        sections.forEach(function (s) {
+          s.classList.add('in');
+          settleSectionAfter(s, 0);
+        });
+        return;
+      }
+
+      sectionObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var section = entry.target;
+          section.classList.add('in');
+          var cells = section.querySelectorAll('.cell').length;
+          settleSectionAfter(section, cells);
+          sectionObserver.unobserve(section);
+        });
+      }, { rootMargin: '0px 0px -6% 0px', threshold: .03 });
+
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          sections.forEach(function (s) { sectionObserver.observe(s); });
+        });
+      });
+    }
+
+    function settleSectionAfter(section, cellCount) {
+      if (cellCount <= 0) return;
+      var delay = (cellCount - 1) * CELL_DELAY_MS;
+      var total = delay + TRANSFORM_MS + SETTLE_BUFFER;
+      setTimeout(function () {
+        var cells = section.querySelectorAll('.cell');
+        for (var i = 0; i < cells.length; i++) {
+          cells[i].classList.add('settled');
+        }
+      }, total);
+    }
+
+    /* ==========================================================
+       LIGHTBOX
+       ========================================================== */
+    function renderCounter() {
+      var current = String(currentIndex + 1).padStart(2, '0');
+      var total = String(VISUAL_ORDER.length).padStart(2, '0');
+      lbCounter.innerHTML =
+        current + '<span class="separator">/</span>' + total;
+    }
+
+    function updateNavButtons() {
+      var atStart = currentIndex <= 0;
+      var atEnd = currentIndex >= VISUAL_ORDER.length - 1;
+      lbPrev.classList.toggle('hidden', atStart);
+      lbNext.classList.toggle('hidden', atEnd);
+    }
+
+    function preloadNeighborsAtPos(pos) {
+      [pos - 1, pos + 1].forEach(function (p) {
+        if (p >= 0 && p < VISUAL_ORDER.length) {
+          var im = new Image();
+          im.src = IMAGES[VISUAL_ORDER[p]].fullUrl;
+        }
+      });
+    }
+
+    function resetLeaveState() {
+      lbImage.style.transition = 'none';
+      lightbox.classList.remove('leaving-left', 'leaving-right');
+      void lbImage.offsetWidth;
+      lbImage.style.transition = '';
+    }
+
+    function openLightbox(imageIndex) {
+      var pos = positionOfImage(imageIndex);
+      if (pos < 0) pos = 0;
+
+      currentIndex = pos;
+      pendingPos = pos;
+
+      renderCounter();
+      updateNavButtons();
+      resetLeaveState();
+
+      lightbox.classList.remove('ready');
+      lightbox.classList.add('on');
+      document.body.style.overflow = 'hidden';
+
+      var imgIdx = VISUAL_ORDER[pos];
+      var image = new Image();
+      var requestedPos = pos;
+
+      image.onload = image.onerror = showLoadedImage;
+      image.src = IMAGES[imgIdx].fullUrl;
+
+      function showLoadedImage() {
+        if (pendingPos !== requestedPos) return;
+        lbImage.src = image.src;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            if (pendingPos !== requestedPos) return;
+            lightbox.classList.add('ready');
+          });
+        });
+      }
+      preloadNeighborsAtPos(pos);
+    }
+
+    function closeLightbox() {
+      if (!lightbox.classList.contains('on')) return;
+      pendingPos = null;
+      lightbox.classList.remove('ready');
+      lightbox.classList.remove('leaving-left', 'leaving-right');
+      lightbox.classList.remove('on');
+      document.body.style.overflow = '';
+    }
+
+    function navigate(direction) {
+      if (navigationBusy) return;
+      var nextPos = currentIndex + direction;
+      if (nextPos < 0 || nextPos >= VISUAL_ORDER.length) return;
+
+      navigationBusy = true;
+      currentIndex = nextPos;
+      pendingPos = nextPos;
+      renderCounter();
+      updateNavButtons();
+
+      var imgIdx = VISUAL_ORDER[nextPos];
+      var url = IMAGES[imgIdx].fullUrl;
+      var preload = new Image();
+      var startedAt = performance.now();
+      var done = false;
+
+      lightbox.classList.remove('leaving-left', 'leaving-right');
+      lightbox.classList.remove('ready');
+      lightbox.classList.add(direction > 0 ? 'leaving-left' : 'leaving-right');
+
+      function finish() {
+        if (done) return;
+        done = true;
+        var elapsed = performance.now() - startedAt;
+        var wait = Math.max(0, NAV_MIN_MS - elapsed);
+
+        setTimeout(function () {
+          resetLeaveState();
+          lbImage.src = url;
+          preloadNeighborsAtPos(nextPos);
+
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              lightbox.classList.add('ready');
+              setTimeout(function () { navigationBusy = false; }, 320);
+            });
+          });
+        }, wait);
+      }
+
+      preload.onload = preload.onerror = finish;
+      preload.src = url;
+      if (preload.complete && preload.naturalWidth > 0) finish();
+    }
+
+    /* ==========================================================
+       VIEWPORT INSET
+       ========================================================== */
+    function updateViewportInset() {
+      var docEl = document.documentElement;
+      if (docEl && typeof docEl.clientHeight === 'number') {
+        var browserInset = Math.max(0, window.innerHeight - docEl.clientHeight);
+        document.documentElement.style.setProperty(
+          '--browser-inset', browserInset + 'px'
+        );
+      } else {
+        document.documentElement.style.setProperty('--browser-inset', '0px');
+      }
+    }
+
+    /* ==========================================================
+       BOOT-ИНДИКАТОР
+       ========================================================== */
+    function showBoot() { bootEl.classList.remove('off'); }
+    function hideBoot() { bootEl.classList.add('off'); }
+
+    /* ==========================================================
+       ЗАГРУЗКА ГАЛЕРЕИ
+       ========================================================== */
+    function fetchGallery(key) {
+      return new Promise(function (resolve) {
+        if (!manifestReady) {
+          loadManifest().then(function () { resolve(fetchGallery(key)); });
+          return;
+        }
+
+        if (key === 'family') {
+          // Папка «Семейные фото» не создаётся — возвращаем пустой список.
+          resolve([]);
+          return;
+        }
+
+        var files = (MANIFEST && MANIFEST[key]) || [];
+        var arr = filesToImages(key, files);
+
+        // Числовая сортировка по имени файла (на случай, если
+        // манифест сгенерирован без неё).
+        arr.sort(function (a, b) {
+          return a.name.localeCompare(b.name, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+        });
+
+        resolve(arr);
+      });
+    }
+
+    function buildOrientationsFromCache(arr, cached) {
+      return arr.map(function (img) {
+        var v = cached && cached[img.id];
+        return (v === 'H' || v === 'V' || v === 'S') ? v : undefined;
+      });
+    }
+
+    function hasUnknownOrientation() {
+      for (var i = 0; i < orientations.length; i++) {
+        if (orientations[i] === undefined) return true;
+      }
+      return false;
+    }
+
+    function scheduleBackgroundOrientationsLoad(key, arr) {
+      if (!hasUnknownOrientation()) return;
+
+      preloadOrientations(arr).then(function (ori) {
+        var map = {};
+        arr.forEach(function (img, i) {
+          map[img.id] = orientations[i] !== undefined
+            ? orientations[i]
+            : ori[i];
+        });
+        saveOrientationCache(key, map);
+      }).catch(function () { /* silent */ });
+    }
+
+    /* ==========================================================
+       ПОКАЗ VIEW
+       ========================================================== */
+    function showHome() {
+      closeLightbox();
+
+      activeKey = null;
+      hideBoot();
+
+      viewGallery.hidden = true;
+      viewHome.hidden = false;
+
+      window.scrollTo(0, 0);
+      fabTop.classList.add('hidden');
+
+      if (!wordSettled) {
+        requestAnimationFrame(centerWord);
+      }
+    }
+
+    function renderEmpty(message) {
+      galleryEl.innerHTML =
+        '<div class="empty">' + (message || 'В этой папке пока нет изображений') + '</div>';
+    }
+
+    function showGallery(key, title) {
+      closeLightbox();
+
+      viewHome.hidden = true;
+      viewGallery.hidden = false;
+
+      galleryCategoryEl.textContent = 'Архив / ' + title;
+      window.scrollTo(0, 0);
+      fabTop.classList.add('hidden');
+
+      activeKey = key;
+
+      if (CACHE[key]) {
+        var cachedArr = CACHE[key];
+        IMAGES = cachedArr;
+
+        if (!cachedArr.length) {
+          renderEmpty();
+          return;
+        }
+
+        var cachedOris = loadOrientationCache(key);
+        orientations = buildOrientationsFromCache(cachedArr, cachedOris);
+
+        renderGrid();
+        waitForGridImages().then(function () {
+          if (activeKey !== key) return;
+          activateSections();
+        });
+        scheduleBackgroundOrientationsLoad(key, cachedArr);
+        return;
+      }
+
+      showBoot();
+      galleryEl.innerHTML = '';
+
+      fetchGallery(key).then(function (arr) {
+        if (activeKey !== key) return;
+
+        arr = Array.isArray(arr) ? arr : [];
+        CACHE[key] = arr;
+
+        if (!arr.length) {
+          hideBoot();
+          IMAGES = [];
+          renderEmpty();
+          return;
+        }
+
+        IMAGES = arr;
+
+        var cached = loadOrientationCache(key);
+        orientations = buildOrientationsFromCache(arr, cached);
+
+        renderGrid();
+
+        waitForGridImages().then(function () {
+          if (activeKey !== key) return;
+          hideBoot();
+          requestAnimationFrame(function () {
+            if (activeKey !== key) return;
+            activateSections();
+          });
+        });
+
+        scheduleBackgroundOrientationsLoad(key, arr);
+      }).catch(function (err) {
+        console.error('fetchGallery error:', err);
+        if (activeKey !== key) return;
+        hideBoot();
+        IMAGES = [];
+        renderEmpty('Ошибка загрузки галереи');
+      });
+    }
+
+    /* ==========================================================
+       РОУТЕР
+       ========================================================== */
+    function getHash() {
+      var h = location.hash.replace(/^#/, '');
+      return h || '/';
+    }
+
+    function route() {
+      var hash = getHash();
+      var r = ROUTES[hash] || ROUTES['/'];
+
+      if (r.view === 'home') {
+        showHome();
+      } else {
+        showGallery(r.key, r.title);
+      }
+    }
+
+    window.addEventListener('hashchange', route);
+
+    /* ==========================================================
+       КНОПКИ ГЛАВНОЙ → hash
+       ========================================================== */
+    document.querySelectorAll('.glass-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var key = btn.dataset.gallery;
+        if (key) location.hash = '#/' + key;
+      });
+    });
+
+    /* ==========================================================
+       КНОПКА «‹» → hash на главную
+       ========================================================== */
+    document.getElementById('fabHome').addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      location.hash = '#/';
+    });
+
+    /* ==========================================================
+       FAB «▴»
+       ========================================================== */
+    fabTop.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    window.addEventListener('scroll', function () {
+      if (window.scrollY > 400) fabTop.classList.remove('hidden');
+      else fabTop.classList.add('hidden');
+    }, { passive: true });
+
+    /* ==========================================================
+       PRESSED STATE
+       ========================================================== */
+    function clearPressedButtons() {
+      document.querySelectorAll('button.pressed').forEach(function (b) {
+        b.classList.remove('pressed');
+      });
+    }
+
+    document.addEventListener('pointerdown', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('button');
+      if (btn && !btn.disabled) btn.classList.add('pressed');
+    }, true);
+    document.addEventListener('pointerup', clearPressedButtons, true);
+    document.addEventListener('pointercancel', clearPressedButtons, true);
+    window.addEventListener('blur', clearPressedButtons);
+    document.addEventListener('visibilitychange', clearPressedButtons);
+
+    /* ==========================================================
+       LIGHTBOX — события
+       ========================================================== */
+    document.getElementById('lbClose').addEventListener('click', function (ev) {
+      ev.stopPropagation(); closeLightbox();
+    });
+    lbPrev.addEventListener('click', function (ev) {
+      ev.stopPropagation(); navigate(-1);
+    });
+    lbNext.addEventListener('click', function (ev) {
+      ev.stopPropagation(); navigate(1);
+    });
+
+    lightbox.addEventListener('click', function (ev) {
+      if (ev.target === lightbox || ev.target === lbImage) closeLightbox();
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      if (!lightbox.classList.contains('on')) return;
+      if (ev.key === 'Escape') closeLightbox();
+      if (ev.key === 'ArrowLeft') navigate(-1);
+      if (ev.key === 'ArrowRight') navigate(1);
+    });
+
+    var touchStartX = 0;
+    lightbox.addEventListener('touchstart', function (ev) {
+      touchStartX = ev.changedTouches[0].screenX;
+    }, { passive: true });
+    lightbox.addEventListener('touchend', function (ev) {
+      var diff = touchStartX - ev.changedTouches[0].screenX;
+      if (Math.abs(diff) > 55 && !navigationBusy) {
+        navigate(diff > 0 ? 1 : -1);
+      }
+    }, { passive: true });
+
+    /* ==========================================================
+       RESIZE / VIEWPORT
+       ========================================================== */
+    updateViewportInset();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewportInset, { passive: true });
+      window.visualViewport.addEventListener('scroll', updateViewportInset, { passive: true });
+    }
+
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        if (!viewGallery.hidden) {
+          var columns = getColumns();
+          if (columns !== currentColumns) {
+            renderGrid();
+            activateSections();
+          } else {
+            setCellSize();
+          }
+        }
+        updateViewportInset();
+      }, 150);
+    }, { passive: true });
+
+    if ('ResizeObserver' in window) {
+      var ro = new ResizeObserver(function () {
+        if (viewGallery.hidden) return;
+        var columns = getColumns();
+        if (columns !== currentColumns) {
+          renderGrid();
+          activateSections();
+        } else {
+          setCellSize();
+        }
+      });
+      ro.observe(galleryEl);
+    }
+
+    /* ==========================================================
+       СТАРТ
+       ========================================================== */
+    function init() {
+      var initial = ROUTES[getHash()] || ROUTES['/'];
+
+      if (initial.view === 'gallery') revealBody();
+
+      loadManifest().then(function () {
+        bootHome();
+        route();
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+  </script>
+</body>
+</html>
