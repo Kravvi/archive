@@ -6,10 +6,11 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
   >
-  <title>Архив фоторабот</title>
+  <title>Архив</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://images.weserv.nl" crossorigin>
   <link
     rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap"
@@ -918,6 +919,35 @@
     'use strict';
 
     /* ==========================================================
+       РЕПОЗИТОРИЙ (для ресайза через weserv.nl)
+       ========================================================== */
+    var REPO_USER   = 'Kravvi';
+    var REPO_NAME   = 'archive';
+    var REPO_BRANCH = 'main';
+    var WESERV      = 'https://images.weserv.nl/';
+
+    /**
+     * Собирает URL миниатюры через images.weserv.nl.
+     * Сервис забирает фото из GitHub, ресайзит и отдаёт WebP.
+     * В репозитории фотография остаётся в одном экземпляре.
+     */
+    function thumbUrl(category, filename, width) {
+      var raw = 'raw.githubusercontent.com/' + REPO_USER + '/' + REPO_NAME +
+                '/' + REPO_BRANCH + '/images/' + category + '/' +
+                encodeURIComponent(filename);
+      return WESERV + '?url=' + raw +
+             '&w=' + width + '&q=75&output=webp&fit=inside';
+    }
+
+    /**
+     * Прямая ссылка на файл в репозитории (fallback и/или
+     * использование, если weserv недоступен).
+     */
+    function localUrl(category, filename) {
+      return 'images/' + category + '/' + encodeURIComponent(filename);
+    }
+
+    /* ==========================================================
        МАНИФЕСТ ИЗОБРАЖЕНИЙ (загружается с GitHub Pages)
        ========================================================== */
     var MANIFEST = null;
@@ -947,14 +977,17 @@
        ========================================================== */
     function filesToImages(category, files) {
       if (!Array.isArray(files)) return [];
+
+      // Ширина для сетки и для карусели home разная.
+      var gridW = (category === 'home') ? 500 : 700;
+
       return files.map(function (name) {
-        var encoded = encodeURIComponent(name);
-        var base = 'images/' + category + '/' + encoded;
         return {
           id:       category + '/' + name,
           name:     name,
-          thumbUrl: base,
-          fullUrl:  base
+          thumbUrl: thumbUrl(category, name, gridW),
+          fullUrl:  thumbUrl(category, name, 1600),
+          localUrl: localUrl(category, name)
         };
       });
     }
@@ -1043,15 +1076,10 @@
     /* ==========================================================
        HOME — тайминги и состояние
        ========================================================== */
-    var LOOP_MS          = 3600;
-    var PEAK_MS          = 2100;
-    var RETURN_MS        = 1300;
-    // Раньше было 30000 — пользователь ждал появления кнопок до 30 сек.
-    // Теперь 6 сек — этого достаточно, чтобы первые кадры появились.
-    var MAX_LOAD_WAIT_MS = 6000;
-    // Раньше settle запускался только когда загружены ВСЕ ~90 картинок.
-    // Теперь — когда загрузились первые 8.
-    var EARLY_SETTLE_COUNT = 8;
+    var LOOP_MS          = 3600;   // длина одного цикла loopFocus
+    var RETURN_MS        = 1300;   // длительность возврата на позицию
+    var MAX_LOAD_WAIT_MS = 6000;   // страховой таймаут загрузки карусели
+    var EARLY_SETTLE_COUNT = 8;    // settle после N загруженных картинок
 
     var homeBooted = false;
     var wordSettled = false;
@@ -1094,14 +1122,39 @@
       setTimeout(function () { if (!wordSettled) centerWord(); }, 400);
     }
 
+    /**
+     * Планирует settle так, чтобы он попал в начало видимой фазы
+     * цикла loopFocus и происходил ПОСЛЕ хотя бы одного полного цикла.
+     * Никакого «зависания» между анимацией и возвратом.
+     */
     function trySettle() {
       if (wordSettled) return;
       wordSettled = true;
 
       var elapsed = performance.now() - homeStart;
-      var cyclePos = elapsed % LOOP_MS;
-      var wait = PEAK_MS - cyclePos;
-      if (wait < 1500) wait += LOOP_MS;
+
+      // Видимая фаза loopFocus: 30% – 70% цикла (1080–2520 мс).
+      var visibleStart = LOOP_MS * 0.30;
+      var visibleEnd   = LOOP_MS * 0.60;
+
+      // Не даём settle сработать раньше одного полного цикла.
+      var minTarget = Math.max(LOOP_MS, elapsed);
+      var cyclePos  = minTarget % LOOP_MS;
+
+      var offset;
+      if (cyclePos <= visibleStart) {
+        offset = visibleStart - cyclePos;
+      } else if (cyclePos < visibleEnd) {
+        offset = 0; // уже в видимой фазе
+      } else {
+        offset = (LOOP_MS - cyclePos) + visibleStart;
+      }
+
+      var target = minTarget + offset;
+      // Верхняя граница — 2 цикла.
+      if (target > LOOP_MS * 2) target = LOOP_MS * 2;
+
+      var wait = Math.max(0, target - elapsed);
 
       setTimeout(function () {
         wordEl.classList.remove('loading');
@@ -1159,8 +1212,6 @@
 
       function markDone() {
         loadedImages++;
-        // Ранний триггер: как только загрузилось EARLY_SETTLE_COUNT —
-        // больше не ждём остальные картинки, показываем кнопки.
         if (loadedImages >= EARLY_SETTLE_COUNT) trySettle();
         if (loadedImages >= totalImages) onAllLoaded();
       }
@@ -1184,8 +1235,6 @@
           img.dataset.done = '0';
           img.dataset.retried = '0';
 
-          // Первая картинка в каждой колонке — высокий приоритет.
-          // Остальные — низкий, чтобы не забивать канал.
           if (idx === 0) {
             img.setAttribute('fetchpriority', 'high');
           } else {
@@ -1200,10 +1249,17 @@
 
           img.onload = done;
           img.onerror = function () {
-            done();
-            if (img.dataset.retried === '1') return;
+            if (img.dataset.retried === '1') {
+              done();
+              return;
+            }
             img.dataset.retried = '1';
-            setTimeout(function () { img.src = baseUrl + '?retry=1'; }, 2000);
+            // Откат на прямой файл, если weserv не ответил
+            if (imgData.localUrl) {
+              img.src = imgData.localUrl;
+            } else {
+              done();
+            }
           };
           img.src = baseUrl;
           contentDiv.appendChild(img);
@@ -1341,8 +1397,6 @@
       } catch (e) { /* ignore */ }
     }
 
-    // Ориентация сохраняется не сразу — батчами раз в 1.5 сек,
-    // чтобы не долбить localStorage при каждой загрузке картинки.
     var oriSaveTimer = null;
     function scheduleSaveOrientationCache() {
       if (oriSaveTimer) clearTimeout(oriSaveTimer);
@@ -1483,8 +1537,6 @@
       var photo = document.createElement('img');
       photo.alt = '';
       photo.decoding = 'async';
-      // КЛЮЧЕВОЕ: браузер сам решает, когда грузить эту картинку.
-      // Пока картинка далеко за пределами экрана — она не грузится.
       photo.loading = 'lazy';
 
       var loadedScheduled = false;
@@ -1498,8 +1550,6 @@
         });
       }
 
-      // Определяем ориентацию прямо из загруженной картинки —
-      // больше не нужен отдельный probe через new Image().
       function captureOrientation() {
         if (orientations[imageIndex] !== undefined) return;
         var w = photo.naturalWidth;
@@ -1517,7 +1567,13 @@
         scheduleLoaded();
       });
       photo.addEventListener('error', function () {
-        cell.style.display = 'none';
+        // Если weserv не ответил — пробуем прямой файл из репозитория.
+        if (photo.dataset.fallback === '1') {
+          cell.style.display = 'none';
+          return;
+        }
+        photo.dataset.fallback = '1';
+        photo.src = image.localUrl;
       });
 
       photo.src = image.thumbUrl;
@@ -1740,13 +1796,23 @@
       lbNext.classList.toggle('hidden', atEnd);
     }
 
-    function preloadNeighborsAtPos(pos) {
-      [pos - 1, pos + 1].forEach(function (p) {
-        if (p >= 0 && p < VISUAL_ORDER.length) {
-          var im = new Image();
-          im.src = IMAGES[VISUAL_ORDER[p]].fullUrl;
+    // Предзагрузка соседних изображений с откатом на прямые файлы.
+    function preloadImageAt(index) {
+      if (index < 0 || index >= VISUAL_ORDER.length) return;
+      var im = IMAGES[VISUAL_ORDER[index]];
+      var probe = new Image();
+      probe.onerror = function () {
+        if (im.localUrl) {
+          var fallback = new Image();
+          fallback.src = im.localUrl;
         }
-      });
+      };
+      probe.src = im.fullUrl;
+    }
+
+    function preloadNeighborsAtPos(pos) {
+      preloadImageAt(pos - 1);
+      preloadImageAt(pos + 1);
     }
 
     function resetLeaveState() {
@@ -1772,15 +1838,15 @@
       document.body.style.overflow = 'hidden';
 
       var imgIdx = VISUAL_ORDER[pos];
-      var image = new Image();
+      var imageData = IMAGES[imgIdx];
       var requestedPos = pos;
+      var settled = false;
 
-      image.onload = image.onerror = showLoadedImage;
-      image.src = IMAGES[imgIdx].fullUrl;
-
-      function showLoadedImage() {
+      function applyImage(src) {
+        if (settled) return;
         if (pendingPos !== requestedPos) return;
-        lbImage.src = image.src;
+        settled = true;
+        lbImage.src = src;
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
             if (pendingPos !== requestedPos) return;
@@ -1788,6 +1854,18 @@
           });
         });
       }
+
+      var loader = new Image();
+      loader.onload = function () { applyImage(loader.src); };
+      loader.onerror = function () {
+        // Откат на прямую ссылку
+        var fallback = new Image();
+        fallback.onload = function () { applyImage(fallback.src); };
+        fallback.onerror = function () { applyImage(imageData.localUrl); };
+        fallback.src = imageData.localUrl;
+      };
+      loader.src = imageData.fullUrl;
+
       preloadNeighborsAtPos(pos);
     }
 
@@ -1812,14 +1890,18 @@
       updateNavButtons();
 
       var imgIdx = VISUAL_ORDER[nextPos];
-      var url = IMAGES[imgIdx].fullUrl;
-      var preload = new Image();
+      var imageData = IMAGES[imgIdx];
+      var url = imageData.fullUrl;
       var startedAt = performance.now();
       var done = false;
 
       lightbox.classList.remove('leaving-left', 'leaving-right');
       lightbox.classList.remove('ready');
       lightbox.classList.add(direction > 0 ? 'leaving-left' : 'leaving-right');
+
+      var preload = new Image();
+      var finalUrl = url;
+      var fallbackTried = false;
 
       function finish() {
         if (done) return;
@@ -1829,7 +1911,7 @@
 
         setTimeout(function () {
           resetLeaveState();
-          lbImage.src = url;
+          lbImage.src = finalUrl;
           preloadNeighborsAtPos(nextPos);
 
           requestAnimationFrame(function () {
@@ -1841,7 +1923,13 @@
         }, wait);
       }
 
-      preload.onload = preload.onerror = finish;
+      preload.onload = finish;
+      preload.onerror = function () {
+        if (fallbackTried) { finish(); return; }
+        fallbackTried = true;
+        finalUrl = imageData.localUrl;
+        preload.src = finalUrl;
+      };
       preload.src = url;
       if (preload.complete && preload.naturalWidth > 0) finish();
     }
@@ -1940,7 +2028,6 @@
 
       activeKey = key;
 
-      // -------- Из кэша --------
       if (CACHE[key]) {
         var cachedArr = CACHE[key];
         IMAGES = cachedArr;
@@ -1956,13 +2043,10 @@
 
         renderGrid();
         hideBoot();
-        // Раньше ждали загрузки ВСЕХ картинок. Теперь — сразу.
-        // Картинки с loading="lazy" подгружаются по мере прокрутки.
         activateSections();
         return;
       }
 
-      // -------- Первая загрузка --------
       showBoot();
       galleryEl.innerHTML = '';
 
