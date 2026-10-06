@@ -10,14 +10,14 @@ This repository contains the source code and visual assets of the Alexander Krav
 
 The archive is organized into thematic collections, including:
 
-    women - Women's photos
-    men - Men's photos
-    white - White photos
-    kids - Kids' photos
-    model - Model tests
-    nature - Nature patterns
-    coffee - Coffee
-    misc - Miscellaneous
+- Women's photos
+- Men's photos
+- White photos
+- Kids' photos
+- Model tests
+- Nature patterns
+- Coffee
+- Miscellaneous
 
 The collection may be expanded with additional categories in the future.
 
