@@ -1,6 +1,6 @@
 # Photography Archive - Alexander Kravvi
 
-Archival portfolio of photographic works by Alexander Kravvi, a professional **fine art photographer** and retoucher.
+Archival portfolio of photographic works by Alexander Kravvi, a professional fine art photographer and retoucher.
 
 This archive presents a selection of photographic works created throughout Alexander Kravvi's professional practice, covering portraiture, fashion, editorial and other visual projects.
 
@@ -28,7 +28,7 @@ Professional Photographer · Visual Artist · Retoucher
 
 ### Copyright
 
-© Alexander Kravvi. All rights reserved.
+**© Alexander Kravvi. All rights reserved.**
 
 All photographs, visual works and other original visual materials contained in this repository are protected by copyright. They may not be reproduced, distributed, modified, published or used for commercial or non-commercial purposes without prior written permission from the copyright holder.
 
