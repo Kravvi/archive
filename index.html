@@ -10,7 +10,6 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://images.weserv.nl" crossorigin>
   <link
     rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap"
@@ -676,8 +675,6 @@
         transform .5s var(--ease);
     }
 
-    /* Лоадер внутри Lightbox: плавное появление с размытием,
-       без чёрного фона. */
     .lb-loader {
       position: absolute;
       inset: 0;
@@ -927,7 +924,6 @@
         </svg>
       </button>
 
-      <!-- Лоадер Lightbox (без фона) -->
       <div class="lb-loader" id="lbLoader" aria-hidden="true">
         <div class="loader"></div>
       </div>
@@ -947,23 +943,49 @@
     'use strict';
 
     /* ==========================================================
-       РЕПОЗИТОРИЙ (для ресайза через weserv.nl)
+       ПУТИ К МИНИАТЮРАМ
+       Структура:
+         thumbs/400px/home/        → 400 px
+         thumbs/800px/<галерея>/   → 800 px
+         thumbs/980px/home/        → 980 px
+         thumbs/1200px/<галерея>/  → 1200 px
+         thumbs/1400px/home/       → 1400 px
+         thumbs/1960px/home/       → 1960 px
        ========================================================== */
-    var REPO_USER   = 'Kravvi';
-    var REPO_NAME   = 'archive';
-    var REPO_BRANCH = 'main';
-    var WESERV      = 'https://images.weserv.nl/';
-
-    function thumbUrl(category, filename, width) {
-      var raw = 'raw.githubusercontent.com/' + REPO_USER + '/' + REPO_NAME +
-                '/' + REPO_BRANCH + '/images/' + category + '/' +
-                encodeURIComponent(filename);
-      return WESERV + '?url=' + raw +
-             '&w=' + width + '&q=75&output=webp&fit=inside';
+    function strippedName(filename) {
+      return filename.replace(/\.[^.]+$/, '');
     }
 
-    function localUrl(category, filename) {
-      return 'images/' + category + '/' + encodeURIComponent(filename);
+    /**
+     * Возвращает набор источников для картинки:
+     *   { src, srcset (или null), fallback (оригинал) }
+     * Для home — 4 размера (srcset).
+     * Для галерей — 2 размера (srcset).
+     */
+    function buildSources(category, filename) {
+      var base = strippedName(filename);
+      var enc = encodeURIComponent(base) + '.webp';
+      var original = 'images/' + category + '/' + encodeURIComponent(filename);
+
+      if (category === 'home') {
+        return {
+          src: 'thumbs/980px/home/' + enc,
+          srcset:
+            'thumbs/400px/home/'  + enc + ' 400w, '  +
+            'thumbs/980px/home/'  + enc + ' 980w, '  +
+            'thumbs/1400px/home/' + enc + ' 1400w, ' +
+            'thumbs/1960px/home/' + enc + ' 1960w',
+          localUrl: original
+        };
+      }
+
+      return {
+        src: 'thumbs/1200px/' + category + '/' + enc,
+        srcset:
+          'thumbs/800px/'  + category + '/' + enc + ' 800w, ' +
+          'thumbs/1200px/' + category + '/' + enc + ' 1200w',
+        localUrl: original
+      };
     }
 
     /* ==========================================================
@@ -997,16 +1019,14 @@
     function filesToImages(category, files) {
       if (!Array.isArray(files)) return [];
 
-      var gridW = (category === 'home') ? 500 : 700;
-      var original = localUrl;
-
       return files.map(function (name) {
+        var s = buildSources(category, name);
         return {
           id:       category + '/' + name,
           name:     name,
-          thumbUrl: thumbUrl(category, name, gridW),
-          fullUrl:  original(category, name),
-          localUrl: original(category, name)
+          src:      s.src,
+          srcset:   s.srcset,
+          localUrl: s.localUrl
         };
       });
     }
@@ -1187,12 +1207,14 @@
         console.warn('Карусель: нет изображений — использую заглушки');
         for (var i = 0; i < 20; i++) {
           HOME_IMAGES.push({
-            thumbUrl:
+            src:
               'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" ' +
               'width="600" height="600" viewBox="0 0 600 600"%3E%3Crect ' +
               'width="600" height="600" fill="%23333"/%3E%3Ctext x="50%25" ' +
               'y="50%25" font-size="30" fill="%23666" text-anchor="middle" ' +
-              'dominant-baseline="central"%3EФото%3C/text%3E%3C/svg%3E'
+              'dominant-baseline="central"%3EФото%3C/text%3E%3C/svg%3E',
+            srcset: null,
+            localUrl: null
           });
         }
       }
@@ -1233,10 +1255,8 @@
 
         doubled.forEach(function (imgData, idx) {
           var img = document.createElement('img');
-          var baseUrl = imgData.thumbUrl;
 
           img.alt = '';
-          img.dataset.url = baseUrl;
           img.dataset.done = '0';
           img.dataset.retried = '0';
 
@@ -1261,12 +1281,20 @@
             }
             img.dataset.retried = '1';
             if (imgData.localUrl) {
+              img.removeAttribute('srcset');
               img.src = imgData.localUrl;
             } else {
               done();
             }
           };
-          img.src = baseUrl;
+
+          // Ширина колонки — 25vw. Браузер сам выберет
+          // 400 / 980 / 1400 / 1960 в зависимости от DPR и экрана.
+          if (imgData.srcset) {
+            img.sizes = '25vw';
+            img.srcset = imgData.srcset;
+          }
+          img.src = imgData.src;
           contentDiv.appendChild(img);
         });
 
@@ -1370,9 +1398,7 @@
     var TRANSFORM_MS  = 2100;
     var SETTLE_BUFFER = 400;
 
-    // Минимальное время показа boot-лоадера галерей — 1 секунда.
     var BOOT_MIN_MS = 1000;
-    // Задержка перед показом лоадера в Lightbox — 1 секунда.
     var LB_LOADER_DELAY_MS = 1000;
 
     /* ==========================================================
@@ -1392,7 +1418,6 @@
     var activeKey = null;
     var sectionObserver = null;
 
-    // Таймер Lightbox-лоадера.
     var lbLoaderTimer = null;
 
     function scheduleLbLoader() {
@@ -1573,6 +1598,18 @@
         photo.setAttribute('fetchpriority', 'low');
       }
 
+      // sizes зависит от типа ячейки:
+      //   wide — в 2 раза шире обычной;
+      //   mobile — 100vw/50vw, desktop — 50vw/25vw.
+      var slotType = area ? getSlotType(area) : 'square';
+      if (slotType === 'wide') {
+        photo.sizes = '(max-width:700px) 100vw, 50vw';
+      } else {
+        photo.sizes = '(max-width:700px) 50vw, 25vw';
+      }
+
+      if (image.srcset) photo.srcset = image.srcset;
+
       var loadedScheduled = false;
       function scheduleLoaded() {
         if (loadedScheduled) return;
@@ -1606,10 +1643,11 @@
           return;
         }
         photo.dataset.fallback = '1';
+        photo.removeAttribute('srcset');
         photo.src = image.localUrl;
       });
 
-      photo.src = image.thumbUrl;
+      photo.src = image.src;
       if (photo.complete && photo.naturalWidth) {
         captureOrientation();
         scheduleLoaded();
@@ -1889,7 +1927,7 @@
           fallback.src = im.localUrl;
         }
       };
-      probe.src = im.fullUrl;
+      probe.src = im.localUrl;
     }
 
     function preloadNeighborsAtPos(pos) {
@@ -1919,7 +1957,6 @@
       lightbox.classList.add('on');
       document.body.style.overflow = 'hidden';
 
-      // Лоадер появится, только если фото не загрузится за 1 секунду.
       scheduleLbLoader();
 
       var imgIdx = VISUAL_ORDER[pos];
@@ -1943,14 +1980,8 @@
 
       var loader = new Image();
       loader.onload = function () { applyImage(loader.src); };
-      loader.onerror = function () {
-        var fallback = new Image();
-        fallback.onload = function () { applyImage(fallback.src); };
-        fallback.onerror = function () { applyImage(imageData.localUrl); };
-        fallback.src = imageData.localUrl;
-      };
-      loader.src = imageData.fullUrl;
-      // Если фото уже в кэше браузера — не ждём события load.
+      loader.onerror = function () { applyImage(imageData.localUrl); };
+      loader.src = imageData.localUrl;
       if (loader.complete && loader.naturalWidth > 0) {
         applyImage(loader.src);
       }
@@ -1979,12 +2010,11 @@
       renderCounter();
       updateNavButtons();
 
-      // Лоадер появится, если новое фото не загрузится за 1 секунду.
       scheduleLbLoader();
 
       var imgIdx = VISUAL_ORDER[nextPos];
       var imageData = IMAGES[imgIdx];
-      var url = imageData.fullUrl;
+      var url = imageData.localUrl;
       var startedAt = performance.now();
       var done = false;
 
@@ -1993,8 +2023,6 @@
       lightbox.classList.add(direction > 0 ? 'leaving-left' : 'leaving-right');
 
       var preload = new Image();
-      var finalUrl = url;
-      var fallbackTried = false;
 
       function finish() {
         if (done) return;
@@ -2004,7 +2032,7 @@
 
         setTimeout(function () {
           resetLeaveState();
-          lbImage.src = finalUrl;
+          lbImage.src = url;
           preloadNeighborsAtPos(nextPos);
 
           requestAnimationFrame(function () {
@@ -2018,12 +2046,7 @@
       }
 
       preload.onload = finish;
-      preload.onerror = function () {
-        if (fallbackTried) { finish(); return; }
-        fallbackTried = true;
-        finalUrl = imageData.localUrl;
-        preload.src = finalUrl;
-      };
+      preload.onerror = finish;
       preload.src = url;
       if (preload.complete && preload.naturalWidth > 0) finish();
     }
@@ -2124,7 +2147,6 @@
 
       activeKey = key;
 
-      // Скрывает boot не раньше, чем через BOOT_MIN_MS (1 сек).
       function finalizeHide() {
         var elapsed = performance.now() - startedAt;
         var remain = Math.max(0, BOOT_MIN_MS - elapsed);
@@ -2135,7 +2157,6 @@
         }, remain);
       }
 
-      // -------- Из кэша --------
       if (CACHE[key]) {
         var cachedArr = CACHE[key];
         IMAGES = cachedArr;
@@ -2159,7 +2180,6 @@
         return;
       }
 
-      // -------- Первая загрузка --------
       showBoot();
       galleryEl.innerHTML = '';
 
