@@ -1,14 +1,14 @@
-# Photography Archive - Alexander Kravvi
+## Photo Archive - Alexander Kravvi
 
-Archival portfolio of photographic works by Alexander Kravvi, a professional fine art photographer and retoucher.
+An archival portfolio of photographic works by Alexander Kravvi, a professional fine art photographer and retoucher.
 
-**Website:** https://kravvi.github.io/archive
+🔗 **Website link:** [https://kravvi.github.io/archive](https://kravvi.github.io/archive)
 
-This archive presents a selection of photographic works created throughout Alexander Kravvi's professional practice, covering portraiture, fashion, editorial and other visual projects.
+This archive presents a selection of photographic works created throughout the professional career of Alexander Kravvi, covering portraiture, fashion, editorial, and other visual projects.
 
-### About the Project
+#### About the Project
 
-This repository contains the source code and visual assets of the Alexander Kravvi Photography Archive website.
+This repository contains the source code and visual assets for the "Alexander Kravvi Photo Archive" website.
 
 The archive is organized into thematic collections, including:
 
@@ -20,20 +20,18 @@ The archive is organized into thematic collections, including:
 - Nature patterns
 - Coffee
 - Miscellaneous
-
+ 
 The collection may be expanded with additional categories in the future.
 
-### Author
+#### Author
 
 Alexander Kravvi
 Professional Photographer · Visual Artist · Retoucher
 
-### Copyright
+#### Copyright
 
-**© Alexander Kravvi. All rights reserved.**
+© Alexander Kravvi. All rights reserved.
 
-All photographs, visual works and other original visual materials contained in this repository are protected by copyright. They may not be reproduced, distributed, modified, published or used for commercial or non-commercial purposes without prior written permission from the copyright holder.
+All photographs, visual works, and other original visual materials contained in this repository are copyrighted. They may not be reproduced, distributed, modified, published, or used for commercial or non-commercial purposes without the prior written permission of the copyright holder.
 
-The source code of this website is also provided without an open-source license. No permission is granted to copy, modify, distribute or reuse the code without authorization.
-
-Photography Archive by Alexander Kravvi
+Alexander Kravvi Photo Archive
