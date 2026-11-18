@@ -33,6 +33,21 @@
       --browser-inset: 0px;
       --fab-h: 112px;
       --extra-inset: 0px;
+
+      /* Темп перехода ГЛАВНАЯ ↔ БИО.
+         База = телефон. На ПК перезадаётся медленнее. */
+      --hb-op: .5s;          /* буквы/текст/кнопки: opacity */
+      --hb-fl: .85s;         /* буквы: blur */
+      --hb-fl-txt: .75s;     /* текст/кнопки: blur */
+      --hb-tr: .95s;         /* буквы: transform */
+      --hb-tr-txt: .9s;      /* текст/кнопки: transform */
+      --hb-group: 1.05s;     /* сдвиг всей группы */
+      --hb-stagger: 1;       /* множитель каскада задержек */
+      --bio-out-op: .5s;     /* уход блоков био */
+      --bio-out-fl: .6s;
+      --bio-out-tr: .6s;
+      --bio-out-dim: .8s;    /* уход затемнения */
+      --bio-out-vis: .8s;    /* когда экран био прячется */
     }
     @media (max-width:700px) {
       :root {
@@ -343,45 +358,61 @@
        HOME — уход в БИО
        Blur вешается на сами листья, не на родителя: filter у
        родителя сэмплирует границы дочерних render-surface.
-       Радиус размытия букв задан в em — он масштабируется вместе
-       с кеглем, растворение одинаково на ПК и телефоне.
+       Радиус размытия букв в em — масштабируется вместе с кеглем.
+       Длительности и каскад берутся из переменных темпа.
        ============================================================ */
+    @media (min-width:701px) {
+      :root {
+        --hb-op: .95s;
+        --hb-fl: 1.5s;
+        --hb-fl-txt: 1.35s;
+        --hb-tr: 1.7s;
+        --hb-tr-txt: 1.55s;
+        --hb-group: 1.9s;
+        --hb-stagger: 1.6;
+        --bio-out-op: .9s;
+        --bio-out-fl: 1.15s;
+        --bio-out-tr: 1.15s;
+        --bio-out-dim: 1.15s;
+        --bio-out-vis: 1.25s;
+      }
+    }
     .main-group.bio-anim .center-word .letter {
       transition:
-        opacity .5s cubic-bezier(.4,0,.2,1),
-        filter .85s var(--ease),
-        transform .95s var(--ease);
+        opacity var(--hb-op) cubic-bezier(.4,0,.2,1),
+        filter var(--hb-fl) var(--ease),
+        transform var(--hb-tr) var(--ease);
     }
-    .main-group.bio-anim .center-word .letter:nth-child(1) { transition-delay: 0ms; }
-    .main-group.bio-anim .center-word .letter:nth-child(2) { transition-delay: 35ms; }
-    .main-group.bio-anim .center-word .letter:nth-child(3) { transition-delay: 70ms; }
-    .main-group.bio-anim .center-word .letter:nth-child(4) { transition-delay: 105ms; }
-    .main-group.bio-anim .center-word .letter:nth-child(5) { transition-delay: 140ms; }
+    .main-group.bio-anim .center-word .letter:nth-child(1) { transition-delay: calc(0ms * var(--hb-stagger)); }
+    .main-group.bio-anim .center-word .letter:nth-child(2) { transition-delay: calc(35ms * var(--hb-stagger)); }
+    .main-group.bio-anim .center-word .letter:nth-child(3) { transition-delay: calc(70ms * var(--hb-stagger)); }
+    .main-group.bio-anim .center-word .letter:nth-child(4) { transition-delay: calc(105ms * var(--hb-stagger)); }
+    .main-group.bio-anim .center-word .letter:nth-child(5) { transition-delay: calc(140ms * var(--hb-stagger)); }
     .main-group.bio-anim .top-text,
     .main-group.bio-anim .bottom-text {
       transition:
-        opacity .5s cubic-bezier(.4,0,.2,1),
-        filter .75s var(--ease),
-        transform .9s var(--ease);
+        opacity var(--hb-op) cubic-bezier(.4,0,.2,1),
+        filter var(--hb-fl-txt) var(--ease),
+        transform var(--hb-tr-txt) var(--ease);
     }
-    .main-group.bio-anim .top-text    { transition-delay: 60ms; }
-    .main-group.bio-anim .bottom-text { transition-delay: 90ms; }
+    .main-group.bio-anim .top-text    { transition-delay: calc(60ms * var(--hb-stagger)); }
+    .main-group.bio-anim .bottom-text { transition-delay: calc(90ms * var(--hb-stagger)); }
     .main-group.bio-anim .buttons-container .glass-btn {
       transition:
-        opacity .5s cubic-bezier(.4,0,.2,1),
-        filter .75s var(--ease),
-        transform .9s var(--ease),
+        opacity var(--hb-op) cubic-bezier(.4,0,.2,1),
+        filter var(--hb-fl-txt) var(--ease),
+        transform var(--hb-tr-txt) var(--ease),
         background .3s ease,
         box-shadow .3s ease;
     }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(1) { transition-delay: 110ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(2) { transition-delay: 130ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(3) { transition-delay: 150ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(4) { transition-delay: 170ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(5) { transition-delay: 190ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(6) { transition-delay: 210ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(7) { transition-delay: 230ms; }
-    .main-group.bio-anim .buttons-container .glass-btn:nth-child(8) { transition-delay: 250ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(1) { transition-delay: calc(110ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(2) { transition-delay: calc(130ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(3) { transition-delay: calc(150ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(4) { transition-delay: calc(170ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(5) { transition-delay: calc(190ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(6) { transition-delay: calc(210ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(7) { transition-delay: calc(230ms * var(--hb-stagger)); }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(8) { transition-delay: calc(250ms * var(--hb-stagger)); }
     .main-group.bio-out .center-word .letter {
       opacity: 0;
       filter: blur(.28em);
@@ -481,7 +512,7 @@
       z-index: 4;
       visibility: hidden;
       pointer-events: none;
-      transition: visibility 0s linear .8s;
+      transition: visibility 0s linear var(--bio-out-vis);
     }
     .bio-screen.on {
       visibility: visible;
@@ -493,7 +524,7 @@
       inset: 0;
       background: #000;
       opacity: 0;
-      transition: opacity .8s var(--ease);
+      transition: opacity var(--bio-out-dim) var(--ease);
       will-change: opacity;
     }
     .bio-screen.on .bio-dim {
@@ -524,9 +555,9 @@
       filter: blur(18px);
       transform: translateY(34px);
       transition:
-        opacity .5s var(--ease),
-        filter .6s var(--ease),
-        transform .6s var(--ease);
+        opacity var(--bio-out-op) var(--ease),
+        filter var(--bio-out-fl) var(--ease),
+        transform var(--bio-out-tr) var(--ease);
       transition-delay: 0s;
       will-change: opacity, filter, transform;
     }
@@ -630,8 +661,8 @@
       transform: translateY(34px) translateZ(0);
       will-change: opacity, transform;
       transition:
-        opacity .5s var(--ease),
-        transform .6s var(--ease);
+        opacity var(--bio-out-op) var(--ease),
+        transform var(--bio-out-tr) var(--ease);
       transition-delay: 0s;
     }
     .bio-screen.on .bio-block.bio-glass-block {
@@ -671,13 +702,16 @@
       pointer-events: none;
       transform: translateY(8px);
       transition:
-        opacity .5s var(--ease),
-        transform .6s var(--ease);
+        opacity var(--bio-out-op) var(--ease),
+        transform var(--bio-out-tr) var(--ease);
     }
     .bio-screen.on .fab.bio-fab {
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0);
+      transition:
+        opacity .5s var(--ease),
+        transform .6s var(--ease);
       transition-delay: .5s;
     }
     @supports not (height: 100dvh) {
@@ -704,10 +738,32 @@
         --bio-txt-tr: 1.1s;
         --bio-txt-stagger: .85;
       }
-      .bio-inner { padding-left: 20px; padding-right: 20px; }
+      /* Одинаковый отступ сверху, слева и справа. */
+      .bio-inner {
+        --bio-gutter: 20px;
+        padding-left: var(--bio-gutter);
+        padding-right: var(--bio-gutter);
+        padding-top: calc(
+          var(--bio-gutter) + env(safe-area-inset-top, 0px)
+        );
+      }
       .bio-p { line-height: 1.75; }
     }
     @media (prefers-reduced-motion:reduce) {
+      :root {
+        --hb-op: .25s;
+        --hb-fl: .25s;
+        --hb-fl-txt: .25s;
+        --hb-tr: .25s;
+        --hb-tr-txt: .25s;
+        --hb-group: .25s;
+        --hb-stagger: 0;
+        --bio-out-op: .25s;
+        --bio-out-fl: .25s;
+        --bio-out-tr: .25s;
+        --bio-out-dim: .25s;
+        --bio-out-vis: .3s;
+      }
       .scroll-hint svg { animation: none; }
       .bio-block,
       .bio-screen.on .bio-block {
@@ -1657,11 +1713,37 @@
     var bioOpen = false;
     var bioBusy = false;
     var bioTopGuardAt = 0;
-    var BIO_ANIM_MS = 1280;
     var BIO_SETTLE_MS = 2200;
     var BIO_WHEEL_GUARD_MS = 250;
     var bioBusyTimer = null;
     var bioSettleTimer = null;
+    /* Длительность блокировки жестов берётся из CSS-темпa,
+       чтобы таймер никогда не обрывал анимацию на середине. */
+    function bioLockMs() {
+      var cs = getComputedStyle(document.documentElement);
+      function ms(name, fallback) {
+        var raw = (cs.getPropertyValue(name) || '').trim();
+        var n = parseFloat(raw);
+        if (isNaN(n)) return fallback;
+        if (/ms$/.test(raw)) return n;
+        if (/s$/.test(raw)) return n * 1000;
+        return n;
+      }
+      function num(name, fallback) {
+        var n = parseFloat((cs.getPropertyValue(name) || '').trim());
+        return isNaN(n) ? fallback : n;
+      }
+      var stagger = num('--hb-stagger', 1);
+      var leaves = Math.max(ms('--hb-op', 500), ms('--hb-tr', 950))
+                 + 250 * stagger;
+      var group = ms('--hb-group', 1050);
+      var out = Math.max(
+        ms('--bio-out-op', 500),
+        ms('--bio-out-tr', 600),
+        ms('--bio-out-vis', 800)
+      );
+      return Math.ceil(Math.max(leaves, group, out)) + 160;
+    }
     function clearBioTimers() {
       if (bioBusyTimer)   { clearTimeout(bioBusyTimer);   bioBusyTimer = null; }
       if (bioSettleTimer) { clearTimeout(bioSettleTimer); bioSettleTimer = null; }
@@ -1677,10 +1759,9 @@
       bioScroll.scrollTop = 0;
       bioTopGuardAt = performance.now();
       bioScreen.classList.remove('settled');
-      // Родитель — только transform. Blur на листьях (.bio-out),
-      // радиус в em — растворение одинаково на ПК и телефоне.
+      // Родитель — только transform. Blur на листьях (.bio-out).
       mainGroup.style.transition =
-        'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1)';
+        'transform var(--hb-group) cubic-bezier(0.22, 1, 0.36, 1)';
       void mainGroup.offsetWidth;
       mainGroup.classList.add('bio-anim');
       mainGroup.classList.add('bio-out');
@@ -1692,7 +1773,7 @@
       bioBusyTimer = setTimeout(function () {
         bioBusyTimer = null;
         bioBusy = false;
-      }, BIO_ANIM_MS);
+      }, bioLockMs());
       bioSettleTimer = setTimeout(function () {
         bioSettleTimer = null;
         if (bioOpen) bioScreen.classList.add('settled');
@@ -1707,7 +1788,7 @@
       bioScreen.classList.remove('settled');
       bioScreen.setAttribute('aria-hidden', 'true');
       mainGroup.style.transition =
-        'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1)';
+        'transform var(--hb-group) cubic-bezier(0.22, 1, 0.36, 1)';
       mainGroup.classList.remove('bio-out');
       mainGroup.style.transform = 'translateY(0)';
       mainGroup.style.pointerEvents = '';
@@ -1719,7 +1800,7 @@
         mainGroup.classList.remove('bio-anim');
         mainGroup.style.transition = 'none';
         mainGroup.style.transform = 'translateY(0)';
-      }, BIO_ANIM_MS);
+      }, bioLockMs());
     }
     function resetBio() {
       clearBioTimers();
