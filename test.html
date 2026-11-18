@@ -669,47 +669,44 @@
      .bio-card-btn:focus { outline: none; }
      .bio-card-btn:active { transform: scale(.97) translateZ(0); }
      /* ============================================================
-        БИО — контактный блок: стекло во всю ширину текста био.
-        Края блока совпадают с краями абзацев. Текст слева сверху,
-        кнопка «Онлайн визитка» — в правом нижнем углу блока, в том
-        же стиле, что и остальные кнопки сайта (.bio-card-btn).
-        Blur фона — на самой карточке; анимация входа только
-        opacity/transform, чтобы не ломать backdrop-filter.
+        БИО — контактный блок: плоское стекло во всю ширину текста
+        био (края совпадают с краями абзацев). Текст слева, кнопка
+        «Открыть» — ровно напротив него справа; если строка не
+        помещается, кнопка переносится в правый нижний угол блока.
+        Стиль кнопки — как у остальных кнопок сайта (.bio-card-btn).
+        Объёмность убрана: тонкая обводка без бликов-фасок по краям.
         ============================================================ */
      .bio-contact-card {
        position: relative;
        width: 100%;
        margin: 40px 0 0;
-       padding: 26px 28px;
+       padding: 20px 26px;
        display: flex;
-       flex-direction: column;
-       align-items: stretch;
-       gap: 20px;
+       flex-wrap: wrap;
+       align-items: center;
+       justify-content: space-between;
+       gap: 14px 24px;
        text-align: left;
-       border-radius: 24px;
+       border-radius: 22px;
        background: linear-gradient(
          135deg,
-         rgba(255,255,255,.10) 0%,
-         rgba(255,255,255,.045) 55%,
-         rgba(255,255,255,.07) 100%
+         rgba(255,255,255,.075) 0%,
+         rgba(255,255,255,.05) 100%
        );
-       border: 1px solid rgba(255,255,255,.12);
-       -webkit-backdrop-filter: blur(22px) saturate(150%);
-       backdrop-filter: blur(22px) saturate(150%);
-       box-shadow:
-         0 24px 60px rgba(0,0,0,.45),
-         inset 0 1px 0 rgba(255,255,255,.14),
-         inset 0 -1px 0 rgba(0,0,0,.2);
+       border: 1px solid rgba(255,255,255,.07);
+       -webkit-backdrop-filter: blur(20px) saturate(140%);
+       backdrop-filter: blur(20px) saturate(140%);
+       box-shadow: 0 16px 40px rgba(0,0,0,.32);
      }
-     /* Мягкий бронзовый отсвет сверху-справа + холодный снизу-слева. */
+     /* Едва заметный отсвет — без объёмной «фаски» по краю. */
      .bio-contact-card::before {
        content: "";
        position: absolute;
        inset: 0;
        border-radius: inherit;
        background:
-         radial-gradient(120% 90% at 85% -10%, rgba(236,171,102,.14), transparent 55%),
-         radial-gradient(90% 70% at 0% 110%, rgba(255,255,255,.06), transparent 60%);
+         radial-gradient(120% 90% at 85% -10%, rgba(236,171,102,.09), transparent 55%),
+         radial-gradient(90% 70% at 0% 110%, rgba(255,255,255,.04), transparent 60%);
        pointer-events: none;
      }
      .bio-contact-card > * {
@@ -720,17 +717,17 @@
        flex: 1 1 auto;
        min-width: 0;
        margin: 0;
-       font-size: clamp(12px, 1.05vw, 15px);
-       line-height: 1.7;
+       font-size: clamp(13px, 1.1vw, 16px);
+       line-height: 1.6;
        letter-spacing: .02em;
-       color: rgba(255,255,255,.62);
+       color: rgba(255,255,255,.72);
        text-align: left;
      }
-     /* Кнопка — в правом нижнем углу блока. Визуальный стиль
-        полностью наследуется от базового .bio-card-btn. */
+     /* Кнопка справа напротив текста; при переносе строки —
+        в правом нижнем углу. Стиль — базовый .bio-card-btn. */
      .bio-contact-card .bio-card-btn {
-       align-self: flex-end;
-       flex-shrink: 0;
+       flex: 0 0 auto;
+       margin-left: auto;
      }
      /* Вход/уход карточки — как у стеклянных блоков: без filter. */
      .bio-block.bio-contact-card {
@@ -845,13 +842,12 @@
          );
        }
        .bio-p { line-height: 1.75; }
-       /* Контактный блок: те же края, что у текста био;
-          кнопка остаётся в правом нижнем углу. */
+       /* Контактный блок: те же края, что у текста био. */
        .bio-contact-card {
-         gap: 18px;
+         gap: 12px 18px;
          margin-top: 32px;
-         padding: 22px 20px;
-         border-radius: 20px;
+         padding: 18px 20px;
+         border-radius: 18px;
        }
      }
      @media (prefers-reduced-motion:reduce) {
@@ -1388,15 +1384,13 @@
              проектировании и создании цифровых продуктов, применяя
              многолетний художественный опыт.</em>
            </p>
-           <!-- Контактный блок: края по тексту био, кнопка справа снизу -->
+           <!-- Контактный блок: текст слева, «Открыть» справа напротив -->
            <div class="bio-block bio-contact-card" style="--d:640">
-             <p class="bio-contact-text">
-               Узнать как связаться с Александром Кравви или найти его
-               в соц. сетях, можно перейдя по этой кнопке
-             </p>
+             <p class="bio-contact-text">Личный сайт Александра Кравви</p>
              <a class="bio-card-btn"
                 href="https://kravvi.github.io"
-                target="_blank" rel="noopener noreferrer">Онлайн визитка</a>
+                target="_blank" rel="noopener noreferrer"
+                aria-label="Открыть личный сайт Александра Кравви">Открыть</a>
            </div>
          </div>
        </div>
