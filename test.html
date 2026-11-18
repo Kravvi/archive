@@ -341,19 +341,19 @@
     }
     /* ============================================================
        HOME — уход в БИО
-       Размытие вешается на САМИ элементы, а не на родителя.
-       filter у родителя сэмплирует границы дочерних render-surface
-       (созданных filter:blur(0) у букв) и оставляет резкую окантовку
-       слова до самого конца анимации. Собственный filter элемента
-       считает область с запасом под blur — кромки не остаётся.
-       Родитель двигается только трансформом: backdrop-filter
-       стеклянных кнопок при этом никогда не отключается.
+       Blur вешается на сами листья, не на родителя: filter у
+       родителя сэмплирует границы дочерних render-surface.
+       Радиус размытия букв задан в em — он масштабируется вместе
+       с кеглем. На ПК глиф ~232px, и абсолютные 16px оставляли
+       ядро штриха (~32px) нерасплывшимся: читалась «окантовка».
+       .28em даёт ~65px на ПК и ~16px на телефоне — одинаковое
+       растворение на любом экране.
        ============================================================ */
     .main-group.bio-anim .center-word .letter {
       transition:
         opacity .5s cubic-bezier(.4,0,.2,1),
-        filter .75s var(--ease),
-        transform .9s var(--ease);
+        filter .85s var(--ease),
+        transform .95s var(--ease);
     }
     .main-group.bio-anim .center-word .letter:nth-child(1) { transition-delay: 0ms; }
     .main-group.bio-anim .center-word .letter:nth-child(2) { transition-delay: 35ms; }
@@ -387,8 +387,8 @@
     .main-group.bio-anim .buttons-container .glass-btn:nth-child(8) { transition-delay: 250ms; }
     .main-group.bio-out .center-word .letter {
       opacity: 0;
-      filter: blur(16px);
-      transform: scale(1.06);
+      filter: blur(.28em);
+      transform: scale(1.14);
     }
     .main-group.bio-out .top-text,
     .main-group.bio-out .bottom-text {
@@ -538,8 +538,6 @@
         transform 1.3s var(--ease);
       transition-delay: calc(var(--d, 0) * 1ms);
     }
-    /* После раскрытия снимаем filter/will-change у блоков:
-       они создают backdrop-root и глушат стекло внутри. */
     .bio-screen.settled .bio-block {
       filter: none;
       will-change: auto;
@@ -610,8 +608,6 @@
     }
     .bio-card-btn:focus { outline: none; }
     .bio-card-btn:active { transform: scale(.97) translateZ(0); }
-    /* Стеклянная кнопка анимируется сама, без filter у предка,
-       иначе backdrop-filter нечем сэмплировать фон. */
     .bio-block.bio-glass-block {
       filter: none !important;
       transform: translateY(34px) translateZ(0);
@@ -644,8 +640,6 @@
     .bio-screen.on .bio-block.bio-glass-block:active {
       transform: scale(.97) translateZ(0);
     }
-    /* Одна стеклянная FAB-кнопка возврата на первый экран,
-       нижний правый угол — тот же язык, что и в галереях. */
     .bio-screen .fab.bio-fab {
       position: absolute;
       top: auto;
@@ -1504,18 +1498,12 @@
       var cyclePos = elapsed % LOOP_MS;
       var wait;
       if (cyclePos <= sharpStart) {
-        // Текущая фокусировка ещё не завершена — доигрываем её до конца.
         wait = sharpStart - cyclePos;
       } else {
-        // Фокус уже пройден — доигрываем текущий цикл до конца
-        // и ловим следующий момент полного фокуса.
         wait = (LOOP_MS - cyclePos) + sharpStart;
       }
       setTimeout(function () {
         wordSettled = true;
-        // Буквы уже в фокусе: смена loading→settled не даёт скачка.
-        // Слово остаётся видимым и плавно едет на своё место,
-        // параллельно появляется всё остальное. Без гашения и мигания.
         wordEl.classList.remove('loading');
         wordEl.classList.add('settled');
         mainGroup.style.transition =
@@ -1665,8 +1653,8 @@
       bioScroll.scrollTop = 0;
       bioTopGuardAt = performance.now();
       bioScreen.classList.remove('settled');
-      // Родитель — только transform. Blur вешается на листья (.bio-out),
-      // поэтому у слова не остаётся резкой кромки, а стекло кнопок живо.
+      // Родитель — только transform. Blur на листьях (.bio-out),
+      // радиус в em — растворение одинаково на ПК и телефоне.
       mainGroup.style.transition =
         'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1)';
       void mainGroup.offsetWidth;
@@ -1704,7 +1692,6 @@
         bioBusyTimer = null;
         bioBusy = false;
         bioScroll.scrollTop = 0;
-        // Все переходы листьев завершены — снимаем временные правила.
         mainGroup.classList.remove('bio-anim');
         mainGroup.style.transition = 'none';
         mainGroup.style.transform = 'translateY(0)';
@@ -1760,7 +1747,6 @@
         closeBio();
       }
     }, { passive: true });
-    // Пока текст био не в начале — жесты вверх только скроллят текст.
     bioScroll.addEventListener('scroll', function () {
       if (bioScroll.scrollTop > 0) bioTopGuardAt = performance.now();
     }, { passive: true });
@@ -2437,8 +2423,6 @@
        BOOT-ИНДИКАТОР
        ========================================================== */
     function showBoot() {
-      // Мгновенное включение без fade-in, чтобы пустая галерея
-      // не мелькала под лоадером. Скрытие (hideBoot) — прежнее, плавное.
       bootEl.classList.add('snap');
       bootEl.classList.remove('off');
       void bootEl.offsetWidth;
@@ -2498,8 +2482,6 @@
     function showGallery(key, title) {
       var startedAt = performance.now();
       closeLightbox();
-      // Лоадер включается ДО показа галереи и мгновенно —
-      // пустая страница не попадает на экран ни на кадр.
       showBoot();
       viewHome.hidden = true;
       viewGallery.hidden = false;
