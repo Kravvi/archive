@@ -669,20 +669,22 @@
      .bio-card-btn:focus { outline: none; }
      .bio-card-btn:active { transform: scale(.97) translateZ(0); }
      /* ============================================================
-        БИО — контактный блок: стекло + бронзовый акцент.
-        Текст слева, кнопка в том же блоке. Blur фона — на самой
-        карточке; анимация входа только opacity/transform, чтобы
-        не ломать backdrop-filter.
+        БИО — контактный блок: стекло во всю ширину текста био.
+        Края блока совпадают с краями абзацев. Текст слева сверху,
+        кнопка «Онлайн визитка» — в правом нижнем углу блока, в том
+        же стиле, что и остальные кнопки сайта (.bio-card-btn).
+        Blur фона — на самой карточке; анимация входа только
+        opacity/transform, чтобы не ломать backdrop-filter.
         ============================================================ */
      .bio-contact-card {
        position: relative;
-       max-width: 640px;
-       margin: 40px auto 0;
+       width: 100%;
+       margin: 40px 0 0;
        padding: 26px 28px;
        display: flex;
-       align-items: center;
-       justify-content: space-between;
-       gap: 26px;
+       flex-direction: column;
+       align-items: stretch;
+       gap: 20px;
        text-align: left;
        border-radius: 24px;
        background: linear-gradient(
@@ -724,43 +726,11 @@
        color: rgba(255,255,255,.62);
        text-align: left;
      }
-     /* Кнопка — бронзовый градиент с тёмным текстом: единственный
-        цветовой акцент блока, читается как «статусная» CTA. */
+     /* Кнопка — в правом нижнем углу блока. Визуальный стиль
+        полностью наследуется от базового .bio-card-btn. */
      .bio-contact-card .bio-card-btn {
+       align-self: flex-end;
        flex-shrink: 0;
-       padding: 13px 30px;
-       font-weight: 600;
-       letter-spacing: .04em;
-       color: #1a1108;
-       background: linear-gradient(135deg, #ECAB66 0%, #cf9257 48%, #B1814F 100%);
-       border: 1px solid rgba(255,255,255,.22);
-       -webkit-backdrop-filter: none;
-       backdrop-filter: none;
-       box-shadow:
-         0 12px 32px rgba(177,129,79,.32),
-         inset 0 1px 0 rgba(255,255,255,.45),
-         inset 0 -1px 0 rgba(90,55,20,.35);
-       transition:
-         transform .3s var(--ease),
-         box-shadow .3s var(--ease),
-         filter .3s var(--ease);
-     }
-     .bio-contact-card .bio-card-btn:hover {
-       transform: scale(1.04) translateY(-3px) translateZ(0);
-       filter: brightness(1.07);
-       color: #140d05;
-       background: linear-gradient(135deg, #ECAB66 0%, #cf9257 48%, #B1814F 100%);
-       box-shadow:
-         0 18px 44px rgba(236,171,102,.4),
-         inset 0 1px 0 rgba(255,255,255,.5),
-         inset 0 -1px 0 rgba(90,55,20,.3);
-     }
-     .bio-contact-card .bio-card-btn:focus-visible {
-       outline: 2px solid rgba(236,171,102,.7);
-       outline-offset: 3px;
-     }
-     .bio-contact-card .bio-card-btn:active {
-       transform: scale(.97) translateZ(0);
      }
      /* Вход/уход карточки — как у стеклянных блоков: без filter. */
      .bio-block.bio-contact-card {
@@ -875,18 +845,13 @@
          );
        }
        .bio-p { line-height: 1.75; }
-       /* Контактный блок: текст сверху, кнопка под ним во всю ширину. */
+       /* Контактный блок: те же края, что у текста био;
+          кнопка остаётся в правом нижнем углу. */
        .bio-contact-card {
-         flex-direction: column;
-         align-items: stretch;
          gap: 18px;
          margin-top: 32px;
          padding: 22px 20px;
          border-radius: 20px;
-       }
-       .bio-contact-card .bio-card-btn {
-         align-self: stretch;
-         padding: 12px 22px;
        }
      }
      @media (prefers-reduced-motion:reduce) {
@@ -1423,7 +1388,7 @@
              проектировании и создании цифровых продуктов, применяя
              многолетний художественный опыт.</em>
            </p>
-           <!-- Контактный блок: стекло, текст слева, кнопка в блоке -->
+           <!-- Контактный блок: края по тексту био, кнопка справа снизу -->
            <div class="bio-block bio-contact-card" style="--d:640">
              <p class="bio-contact-text">
                Узнать как связаться с Александром Кравви или найти его
