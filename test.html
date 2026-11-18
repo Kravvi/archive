@@ -344,10 +344,7 @@
        Blur вешается на сами листья, не на родителя: filter у
        родителя сэмплирует границы дочерних render-surface.
        Радиус размытия букв задан в em — он масштабируется вместе
-       с кеглем. На ПК глиф ~232px, и абсолютные 16px оставляли
-       ядро штриха (~32px) нерасплывшимся: читалась «окантовка».
-       .28em даёт ~65px на ПК и ~16px на телефоне — одинаковое
-       растворение на любом экране.
+       с кеглем, растворение одинаково на ПК и телефоне.
        ============================================================ */
     .main-group.bio-anim .center-word .letter {
       transition:
@@ -470,6 +467,11 @@
        HOME — экран БИО
        ============================================================ */
     .bio-screen {
+      /* Тайминги раскрытия текста. На телефоне чуть быстрее. */
+      --bio-txt-op: 1s;
+      --bio-txt-fl: 1.3s;
+      --bio-txt-tr: 1.3s;
+      --bio-txt-stagger: 1;
       position: fixed;
       top: 0;
       left: 0;
@@ -533,21 +535,35 @@
       filter: blur(0);
       transform: translateY(0);
       transition:
-        opacity 1s var(--ease),
-        filter 1.3s var(--ease),
-        transform 1.3s var(--ease);
-      transition-delay: calc(var(--d, 0) * 1ms);
+        opacity var(--bio-txt-op) var(--ease),
+        filter var(--bio-txt-fl) var(--ease),
+        transform var(--bio-txt-tr) var(--ease);
+      transition-delay: calc(var(--d, 0) * var(--bio-txt-stagger) * 1ms);
     }
     .bio-screen.settled .bio-block {
       filter: none;
       will-change: auto;
     }
+    /* Тело био — по ширине, с переносами (lang="ru"). */
     .bio-p {
       font-size: clamp(14px, 1.35vw, 17px);
       line-height: 1.8;
       letter-spacing: .01em;
       color: rgba(255,255,255,.88);
       margin-bottom: 1.35em;
+      text-align: justify;
+      text-justify: inter-word;
+      -webkit-hyphens: auto;
+      -moz-hyphens: auto;
+      hyphens: auto;
+      hyphenate-limit-chars: 6 3 2;
+    }
+    /* Имена, бренды и ссылки не разрываются переносами. */
+    .bio-p strong,
+    .bio-p .bio-link {
+      -webkit-hyphens: none;
+      -moz-hyphens: none;
+      hyphens: none;
     }
     .bio-p strong {
       color: #fff;
@@ -571,6 +587,7 @@
       line-height: 1.65;
       letter-spacing: .02em;
       color: rgba(255,255,255,.55);
+      text-align: center;
     }
     .bio-contact-cta { margin-top: 20px; }
     .bio-card-btn {
@@ -621,9 +638,9 @@
       filter: none !important;
       transform: translateY(0) translateZ(0);
       transition:
-        opacity 1s var(--ease),
-        transform 1.3s var(--ease);
-      transition-delay: calc(var(--d, 0) * 1ms);
+        opacity var(--bio-txt-op) var(--ease),
+        transform var(--bio-txt-tr) var(--ease);
+      transition-delay: calc(var(--d, 0) * var(--bio-txt-stagger) * 1ms);
     }
     .bio-screen.settled .bio-block.bio-glass-block {
       will-change: auto;
@@ -680,6 +697,13 @@
       .bio-card-btn { padding: 9px 18px; font-size: clamp(12px, 2vw, 15px); }
     }
     @media (max-width:700px) {
+      /* Только скорость раскрытия текста био — чуть быстрее. */
+      .bio-screen {
+        --bio-txt-op: .85s;
+        --bio-txt-fl: 1.1s;
+        --bio-txt-tr: 1.1s;
+        --bio-txt-stagger: .85;
+      }
       .bio-inner { padding-left: 20px; padding-right: 20px; }
       .bio-p { line-height: 1.75; }
     }
