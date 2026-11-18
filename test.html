@@ -340,22 +340,66 @@
       .bottom-text { margin-bottom: 18px; }
     }
     /* ============================================================
-       HOME — уход в БИО (без ореола вокруг букв)
+       HOME — уход в БИО
+       Размытие вешается на САМИ элементы, а не на родителя.
+       filter у родителя сэмплирует границы дочерних render-surface
+       (созданных filter:blur(0) у букв) и оставляет резкую окантовку
+       слова до самого конца анимации. Собственный filter элемента
+       считает область с запасом под blur — кромки не остаётся.
+       Родитель двигается только трансформом: backdrop-filter
+       стеклянных кнопок при этом никогда не отключается.
        ============================================================ */
-    .main-group.bio-out {
-      will-change: filter, opacity, transform;
+    .main-group.bio-anim .center-word .letter {
+      transition:
+        opacity .5s cubic-bezier(.4,0,.2,1),
+        filter .75s var(--ease),
+        transform .9s var(--ease);
     }
-    /* Буквы не должны держать собственные render-surface:
-       иначе blur родителя сэмплирует их границы → ореол на ПК. */
+    .main-group.bio-anim .center-word .letter:nth-child(1) { transition-delay: 0ms; }
+    .main-group.bio-anim .center-word .letter:nth-child(2) { transition-delay: 35ms; }
+    .main-group.bio-anim .center-word .letter:nth-child(3) { transition-delay: 70ms; }
+    .main-group.bio-anim .center-word .letter:nth-child(4) { transition-delay: 105ms; }
+    .main-group.bio-anim .center-word .letter:nth-child(5) { transition-delay: 140ms; }
+    .main-group.bio-anim .top-text,
+    .main-group.bio-anim .bottom-text {
+      transition:
+        opacity .5s cubic-bezier(.4,0,.2,1),
+        filter .75s var(--ease),
+        transform .9s var(--ease);
+    }
+    .main-group.bio-anim .top-text    { transition-delay: 60ms; }
+    .main-group.bio-anim .bottom-text { transition-delay: 90ms; }
+    .main-group.bio-anim .buttons-container .glass-btn {
+      transition:
+        opacity .5s cubic-bezier(.4,0,.2,1),
+        filter .75s var(--ease),
+        transform .9s var(--ease),
+        background .3s ease,
+        box-shadow .3s ease;
+    }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(1) { transition-delay: 110ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(2) { transition-delay: 130ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(3) { transition-delay: 150ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(4) { transition-delay: 170ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(5) { transition-delay: 190ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(6) { transition-delay: 210ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(7) { transition-delay: 230ms; }
+    .main-group.bio-anim .buttons-container .glass-btn:nth-child(8) { transition-delay: 250ms; }
     .main-group.bio-out .center-word .letter {
-      filter: none !important;
-      transform: none !important;
-      will-change: auto !important;
+      opacity: 0;
+      filter: blur(16px);
+      transform: scale(1.06);
     }
-    /* Пока группа под фильтром, backdrop-filter кнопок недоступен —
-       компенсируем потерю стекла лёгким усилением тонировки. */
-    .main-group.bio-out .glass-btn {
-      background: rgba(255,255,255,.13);
+    .main-group.bio-out .top-text,
+    .main-group.bio-out .bottom-text {
+      opacity: 0;
+      filter: blur(14px);
+      transform: translateY(-12px);
+    }
+    .main-group.bio-out .buttons-container .glass-btn {
+      opacity: 0;
+      filter: blur(14px);
+      transform: translateY(-10px) scale(.96) translateZ(0);
     }
     /* ============================================================
        HOME — индикатор прокрутки вниз
@@ -468,9 +512,9 @@
       width: 100%;
       max-width: 780px;
       padding:
-        calc(84px + env(safe-area-inset-top, 0px))
+        calc(56px + env(safe-area-inset-top, 0px))
         24px
-        calc(80px + env(safe-area-inset-bottom, 0px) + var(--extra-inset, 0px));
+        calc(92px + env(safe-area-inset-bottom, 0px) + var(--extra-inset, 0px));
       text-align: center;
     }
     .bio-block {
@@ -600,74 +644,40 @@
     .bio-screen.on .bio-block.bio-glass-block:active {
       transform: scale(.97) translateZ(0);
     }
-    /* Скримы: текст не наезжает на иконку и не режется жёстко у краёв */
-    .bio-fade-top,
-    .bio-fade-bottom {
+    /* Одна стеклянная FAB-кнопка возврата на первый экран,
+       нижний правый угол — тот же язык, что и в галереях. */
+    .bio-screen .fab.bio-fab {
       position: absolute;
-      left: 0;
-      right: 0;
-      z-index: 4;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity .7s var(--ease);
-    }
-    .bio-fade-top {
-      top: 0;
-      height: calc(88px + env(safe-area-inset-top, 0px));
-      background: linear-gradient(
-        to bottom,
-        rgba(0,0,0,.72) 0%,
-        rgba(0,0,0,.42) 46%,
-        rgba(0,0,0,0) 100%
+      top: auto;
+      right: var(--gap);
+      bottom: calc(
+        var(--gap)
+        + env(safe-area-inset-bottom, 0px)
+        + var(--extra-inset, 0px)
       );
-    }
-    .bio-fade-bottom {
-      bottom: 0;
-      height: calc(64px + env(safe-area-inset-bottom, 0px) + var(--extra-inset, 0px));
-      background: linear-gradient(
-        to top,
-        rgba(0,0,0,.66) 0%,
-        rgba(0,0,0,.34) 50%,
-        rgba(0,0,0,0) 100%
-      );
-    }
-    .bio-screen.on .bio-fade-top,
-    .bio-screen.on .bio-fade-bottom { opacity: 1; }
-    /* Иконка «вверх» — возврат на первый экран */
-    .bio-up {
-      position: absolute;
-      top: calc(12px + env(safe-area-inset-top, 0px));
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 5;
-      width: 44px;
-      height: 44px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      color: rgba(255,255,255,.62);
-      cursor: pointer;
+      z-index: 6;
       opacity: 0;
       pointer-events: none;
-      transition: opacity .6s var(--ease), color .35s ease;
-      -webkit-tap-highlight-color: transparent;
-      outline: none;
+      transform: translateY(8px);
+      transition:
+        opacity .5s var(--ease),
+        transform .6s var(--ease);
     }
-    .bio-screen.on .bio-up {
+    .bio-screen.on .fab.bio-fab {
       opacity: 1;
       pointer-events: auto;
-      transition-delay: .45s;
+      transform: translateY(0);
+      transition-delay: .5s;
     }
-    .bio-up svg { animation: hintFloatUp 2.4s ease-in-out infinite; }
-    @keyframes hintFloatUp {
-      0%, 100% { transform: translateY(5px); opacity: .5; }
-      50%      { transform: translateY(0);   opacity: 1; }
-    }
-    @media (hover:hover) and (pointer:fine) {
-      .bio-up:hover { color: #fff; }
+    @supports not (height: 100dvh) {
+      .bio-screen .fab.bio-fab {
+        bottom: calc(
+          var(--gap)
+          + env(safe-area-inset-bottom, 0px)
+          + var(--browser-inset, 0px)
+          + var(--extra-inset, 0px)
+        );
+      }
     }
     @media (max-width:768px) {
       .bio-card-btn { padding: 10px 22px; }
@@ -680,8 +690,7 @@
       .bio-p { line-height: 1.75; }
     }
     @media (prefers-reduced-motion:reduce) {
-      .scroll-hint svg,
-      .bio-up svg { animation: none; }
+      .scroll-hint svg { animation: none; }
       .bio-block,
       .bio-screen.on .bio-block {
         transition: opacity .3s ease;
@@ -693,6 +702,20 @@
       .bio-screen.on .bio-block.bio-glass-block {
         transition: opacity .3s ease;
         transition-delay: 0s;
+        transform: none;
+      }
+      .main-group.bio-anim .center-word .letter:nth-child(n),
+      .main-group.bio-anim .buttons-container .glass-btn:nth-child(n),
+      .main-group.bio-anim .top-text,
+      .main-group.bio-anim .bottom-text {
+        transition: opacity .25s ease;
+        transition-delay: 0s;
+      }
+      .main-group.bio-out .center-word .letter,
+      .main-group.bio-out .top-text,
+      .main-group.bio-out .bottom-text,
+      .main-group.bio-out .buttons-container .glass-btn {
+        filter: none;
         transform: none;
       }
     }
@@ -1193,17 +1216,17 @@
           </div>
         </div>
       </div>
-      <div class="bio-fade-top"></div>
-      <div class="bio-fade-bottom"></div>
-      <!-- Иконка возврата на первый экран -->
-      <button class="bio-up" id="bioUp" aria-label="Вернуться на главную" title="Наверх">
-        <svg width="22" height="22" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor"
-             stroke-width="1.7" stroke-linecap="round"
-             stroke-linejoin="round">
-          <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-      </button>
+      <!-- Возврат на первый экран -->
+      <div class="fab bio-fab">
+        <button id="bioHome" title="На первый экран" aria-label="Вернуться на первый экран">
+          <svg width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round"
+               stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </button>
+      </div>
     </div>
   </section>
   <!-- ============================================================
@@ -1618,20 +1641,17 @@
     var bioScreen = document.getElementById('bioScreen');
     var bioScroll = document.getElementById('bioScroll');
     var bioHintEl = document.getElementById('scrollHint');
-    var bioUpEl   = document.getElementById('bioUp');
+    var bioHomeEl = document.getElementById('bioHome');
     var bioOpen = false;
     var bioBusy = false;
     var bioTopGuardAt = 0;
-    var BIO_ANIM_MS = 1120;
-    var BIO_FILTER_CLEAR_MS = 980;
+    var BIO_ANIM_MS = 1280;
     var BIO_SETTLE_MS = 2200;
     var BIO_WHEEL_GUARD_MS = 250;
     var bioBusyTimer = null;
-    var bioFilterTimer = null;
     var bioSettleTimer = null;
     function clearBioTimers() {
       if (bioBusyTimer)   { clearTimeout(bioBusyTimer);   bioBusyTimer = null; }
-      if (bioFilterTimer) { clearTimeout(bioFilterTimer); bioFilterTimer = null; }
       if (bioSettleTimer) { clearTimeout(bioSettleTimer); bioSettleTimer = null; }
     }
     function homeActive() {
@@ -1645,15 +1665,14 @@
       bioScroll.scrollTop = 0;
       bioTopGuardAt = performance.now();
       bioScreen.classList.remove('settled');
-      // Flatten: буквы теряют собственные слои — blur группы чистый.
-      mainGroup.classList.add('bio-out');
+      // Родитель — только transform. Blur вешается на листья (.bio-out),
+      // поэтому у слова не остаётся резкой кромки, а стекло кнопок живо.
       mainGroup.style.transition =
-        'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1),' +
-        'opacity .55s cubic-bezier(0.4, 0, 0.2, 1),' +
-        'filter .9s cubic-bezier(0.22, 1, 0.36, 1)';
-      mainGroup.style.transform = 'translateY(-42px) scale(.985) translateZ(0)';
-      mainGroup.style.opacity = '0';
-      mainGroup.style.filter = 'blur(18px)';
+        'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1)';
+      void mainGroup.offsetWidth;
+      mainGroup.classList.add('bio-anim');
+      mainGroup.classList.add('bio-out');
+      mainGroup.style.transform = 'translateY(-42px) scale(.985)';
       mainGroup.style.pointerEvents = 'none';
       bioHintEl.classList.remove('visible');
       bioScreen.classList.add('on');
@@ -1676,26 +1695,18 @@
       bioScreen.classList.remove('settled');
       bioScreen.setAttribute('aria-hidden', 'true');
       mainGroup.style.transition =
-        'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1),' +
-        'opacity .7s cubic-bezier(0.22, 1, 0.36, 1),' +
-        'filter .95s cubic-bezier(0.22, 1, 0.36, 1)';
-      mainGroup.style.transform = 'translateY(0) scale(1) translateZ(0)';
-      mainGroup.style.opacity = '1';
-      mainGroup.style.filter = 'blur(0px)';
+        'transform 1.05s cubic-bezier(0.22, 1, 0.36, 1)';
+      mainGroup.classList.remove('bio-out');
+      mainGroup.style.transform = 'translateY(0)';
       mainGroup.style.pointerEvents = '';
       bioHintEl.classList.add('visible');
-      // КРИТИЧНО: blur(0px) ≠ none и держит backdrop-root,
-      // из-за чего стекло кнопок главной пропадает навсегда.
-      bioFilterTimer = setTimeout(function () {
-        bioFilterTimer = null;
-        mainGroup.style.filter = 'none';
-        mainGroup.style.willChange = '';
-        mainGroup.classList.remove('bio-out');
-      }, BIO_FILTER_CLEAR_MS);
       bioBusyTimer = setTimeout(function () {
         bioBusyTimer = null;
         bioBusy = false;
         bioScroll.scrollTop = 0;
+        // Все переходы листьев завершены — снимаем временные правила.
+        mainGroup.classList.remove('bio-anim');
+        mainGroup.style.transition = 'none';
         mainGroup.style.transform = 'translateY(0)';
       }, BIO_ANIM_MS);
     }
@@ -1707,6 +1718,7 @@
       bioScreen.classList.remove('settled');
       bioScreen.setAttribute('aria-hidden', 'true');
       bioScroll.scrollTop = 0;
+      mainGroup.classList.remove('bio-anim');
       mainGroup.classList.remove('bio-out');
       mainGroup.style.transition = 'none';
       mainGroup.style.opacity = '';
@@ -1726,7 +1738,7 @@
       ev.stopPropagation();
       openBio();
     });
-    bioUpEl.addEventListener('click', function (ev) {
+    bioHomeEl.addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
       closeBio();
