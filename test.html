@@ -2324,4 +2324,810 @@
            var map = {};
            var any = false;
            for (var i = 0; i < IMAGES.length; i++) {
-             if (orientations[i]
+             if (orientations[i] !== undefined) {
+               map[IMAGES[i].id] = orientations[i];
+               any = true;
+             }
+           }
+           if (any) saveOrientationCache(activeKey, map);
+         }, 1500);
+       }
+       /* ==========================================================
+          GALLERY — утилиты
+          ========================================================== */
+       function getColumns(cs) {
+         cs = cs || getComputedStyle(galleryEl);
+         return parseInt(cs.getPropertyValue('--cols'), 10) || 4;
+       }
+       function getGap(cs) {
+         cs = cs || getComputedStyle(galleryEl);
+         return parseFloat(cs.getPropertyValue('--gap')) || 14;
+       }
+       function getCellSize() {
+         var cs = getComputedStyle(galleryEl);
+         var columns = getColumns(cs);
+         var gap = getGap(cs);
+         var width = galleryEl.clientWidth;
+         return Math.max(40, (width - (columns + 1) * gap) / columns);
+       }
+       function setCellSize() {
+         galleryEl.style.setProperty('--cell', getCellSize() + 'px');
+       }
+       function getSlotType(area) {
+         var v = area.split('/').map(Number);
+         var rows = v[2] - v[0];
+         var cols = v[3] - v[1];
+         if (rows > cols) return 'tall';
+         if (cols > rows) return 'wide';
+         return 'square';
+       }
+       function getAreaRowCol(area) {
+         var v = area.split('/').map(Number);
+         return { row: v[0], col: v[1] };
+       }
+       /* ==========================================================
+          GALLERY — классификация
+          ========================================================== */
+       function classifyOrientations() {
+         var total = orientations.length;
+         var h = 0, v = 0, s = 0, unknown = 0;
+         for (var i = 0; i < total; i++) {
+           var o = orientations[i];
+           if (o === 'H') h++;
+           else if (o === 'V') v++;
+           else if (o === 'S') s++;
+           else unknown++;
+         }
+         return { h: h, v: v, s: s, unknown: unknown, total: total };
+       }
+       function decideLayoutType() {
+         var st = classifyOrientations();
+         if (st.total === 0) return 'default';
+         if (st.unknown / st.total > 0.5) return 'default';
+         if (st.h === 0 && st.s >= st.total * 0.8) return 'uniform-square';
+         return 'default';
+       }
+       function shouldUseVerticalPatterns(columns) {
+         var st = classifyOrientations();
+         if (st.total === 0) return false;
+         if (st.unknown / st.total > 0.5) return false;
+         if (st.h === 0) return true;
+         var patterns = columns === 2 ? PATTERNS_2 : PATTERNS_4;
+         var cellsPerSection = columns === 2 ? 6 : 12;
+         var wideNeeded = 0;
+         var remaining = st.total;
+         var cycle = 0;
+         while (remaining > 0) {
+           var name = CYCLE[cycle % CYCLE.length];
+           var pattern = patterns[name];
+           for (var i = 0; i < pattern.length; i++) {
+             if (getSlotType(pattern[i]) === 'wide') wideNeeded++;
+           }
+           remaining -= cellsPerSection;
+           cycle++;
+         }
+         return st.h < wideNeeded;
+       }
+       /* ==========================================================
+          GALLERY — сетка
+          ========================================================== */
+       function chooseImage(type, buckets, all, used) {
+         var preferred;
+         if (type === 'wide') {
+           preferred = buckets.h.concat(buckets.s).concat(buckets.v);
+         } else if (type === 'tall') {
+           preferred = buckets.v.concat(buckets.s).concat(buckets.h);
+         } else {
+           preferred = buckets.s.concat(buckets.v).concat(buckets.h);
+         }
+         for (var i = 0; i < preferred.length; i++) {
+           var idx = preferred[i];
+           if (!used.has(idx)) return idx;
+         }
+         for (var j = 0; j < all.length; j++) {
+           var aidx = all[j];
+           if (!used.has(aidx)) return aidx;
+         }
+         return -1;
+       }
+       function createCell(area, image, imageIndex, order, eager) {
+         var cell = document.createElement('figure');
+         cell.className = 'cell';
+         if (area) cell.style.gridArea = area;
+         cell.style.setProperty('--i', order);
+         cell.dataset.index = imageIndex;
+         var photo = document.createElement('img');
+         photo.alt = '';
+         photo.decoding = 'async';
+         photo.loading = eager ? 'eager' : 'lazy';
+         if (eager) {
+           photo.setAttribute('fetchpriority', 'high');
+         } else {
+           photo.setAttribute('fetchpriority', 'low');
+         }
+         // sizes зависит от типа ячейки:
+         //   wide — в 2 раза шире обычной;
+         //   mobile — 100vw/50vw, desktop — 50vw/25vw.
+         var slotType = area ? getSlotType(area) : 'square';
+         if (slotType === 'wide') {
+           photo.sizes = '(max-width:700px) 100vw, 50vw';
+         } else {
+           photo.sizes = '(max-width:700px) 50vw, 25vw';
+         }
+         if (image.srcset) photo.srcset = image.srcset;
+         var loadedScheduled = false;
+         function scheduleLoaded() {
+           if (loadedScheduled) return;
+           loadedScheduled = true;
+           requestAnimationFrame(function () {
+             requestAnimationFrame(function () {
+               photo.classList.add('loaded');
+             });
+           });
+         }
+         function captureOrientation() {
+           if (orientations[imageIndex] !== undefined) return;
+           var w = photo.naturalWidth;
+           var h = photo.naturalHeight;
+           if (!w || !h) return;
+           var ratio = w / h;
+           if (ratio > 1.15) orientations[imageIndex] = 'H';
+           else if (ratio < 0.87) orientations[imageIndex] = 'V';
+           else orientations[imageIndex] = 'S';
+           scheduleSaveOrientationCache();
+         }
+         photo.addEventListener('load', function () {
+           captureOrientation();
+           scheduleLoaded();
+         });
+         photo.addEventListener('error', function () {
+           if (photo.dataset.fallback === '1') {
+             cell.style.display = 'none';
+             return;
+           }
+           photo.dataset.fallback = '1';
+           photo.removeAttribute('srcset');
+           photo.src = image.localUrl;
+         });
+         photo.src = image.src;
+         if (photo.complete && photo.naturalWidth) {
+           captureOrientation();
+           scheduleLoaded();
+         }
+         cell.appendChild(photo);
+         cell.addEventListener('click', function () { openLightbox(imageIndex); });
+         return cell;
+       }
+       function assignVisualOrder(section) {
+         var cells = section.querySelectorAll('.cell');
+         if (!cells.length) return;
+         var arr = [];
+         for (var i = 0; i < cells.length; i++) {
+           var cell = cells[i];
+           var rc = getAreaRowCol(cell.style.gridArea);
+           arr.push({ cell: cell, row: rc.row, col: rc.col, order: i });
+         }
+         arr.sort(function (a, b) {
+           if (a.row !== b.row) return a.row - b.row;
+           if (a.col !== b.col) return a.col - b.col;
+           return a.order - b.order;
+         });
+         for (var k = 0; k < arr.length; k++) {
+           arr[k].cell.style.setProperty('--i', k);
+         }
+       }
+       function buildBuckets() {
+         var buckets = { h: [], v: [], s: [] };
+         var all = [];
+         IMAGES.forEach(function (_, idx) {
+           all.push(idx);
+           var o = orientations[idx];
+           if (o === 'H') buckets.h.push(idx);
+           else if (o === 'V') buckets.v.push(idx);
+           else if (o === 'S') buckets.s.push(idx);
+         });
+         return { buckets: buckets, all: all };
+       }
+       function getEagerCount() {
+         var columns = getColumns();
+         return columns * 2;
+       }
+       function renderUniform() {
+         var columns = getColumns();
+         var eager = getEagerCount();
+         var section = document.createElement('section');
+         section.className = 'section';
+         var order = 0;
+         for (var i = 0; i < IMAGES.length; i++) {
+           var row = Math.floor(i / columns) + 1;
+           var col = (i % columns) + 1;
+           var area = row + '/' + col + '/' + (row + 1) + '/' + (col + 1);
+           section.appendChild(
+             createCell(area, IMAGES[i], i, order, i < eager)
+           );
+           order++;
+         }
+         assignVisualOrder(section);
+         galleryEl.appendChild(section);
+       }
+       function renderPatterned(columns) {
+         var useVertical = shouldUseVerticalPatterns(columns);
+         var patterns;
+         if (useVertical) {
+           patterns = columns === 2 ? PATTERNS_2_V : PATTERNS_4_V;
+         } else {
+           patterns = columns === 2 ? PATTERNS_2 : PATTERNS_4;
+         }
+         var data = buildBuckets();
+         var buckets = data.buckets;
+         var all = data.all;
+         var used = new Set();
+         var sectionIndex = 0;
+         var placed = 0;
+         var eagerLimit = getEagerCount();
+         while (used.size < IMAGES.length) {
+           var name = CYCLE[sectionIndex % CYCLE.length];
+           var pattern = patterns[name];
+           var section = document.createElement('section');
+           section.className = 'section';
+           for (var i = 0; i < pattern.length; i++) {
+             if (used.size >= IMAGES.length) break;
+             var area = pattern[i];
+             var type = getSlotType(area);
+             var imgIdx = chooseImage(type, buckets, all, used);
+             if (imgIdx === -1) break;
+             used.add(imgIdx);
+             section.appendChild(
+               createCell(
+                 area,
+                 IMAGES[imgIdx],
+                 imgIdx,
+                 i,
+                 placed < eagerLimit
+               )
+             );
+             placed++;
+           }
+           assignVisualOrder(section);
+           galleryEl.appendChild(section);
+           sectionIndex++;
+         }
+       }
+       function buildVisualOrder() {
+         VISUAL_ORDER = [];
+         var sections = galleryEl.querySelectorAll('.section');
+         for (var s = 0; s < sections.length; s++) {
+           var cells = sections[s].querySelectorAll('.cell');
+           var arr = [];
+           for (var i = 0; i < cells.length; i++) {
+             var cell = cells[i];
+             var idx = parseInt(cell.dataset.index, 10);
+             if (isNaN(idx)) continue;
+             var rc = getAreaRowCol(cell.style.gridArea || '1/1/2/2');
+             arr.push({
+               cell: cell,
+               index: idx,
+               row: rc.row,
+               col: rc.col,
+               domOrder: i
+             });
+           }
+           arr.sort(function (a, b) {
+             if (a.row !== b.row) return a.row - b.row;
+             if (a.col !== b.col) return a.col - b.col;
+             return a.domOrder - b.domOrder;
+           });
+           for (var k = 0; k < arr.length; k++) {
+             var pos = VISUAL_ORDER.length;
+             VISUAL_ORDER.push(arr[k].index);
+             arr[k].cell.dataset.pos = pos;
+           }
+         }
+       }
+       function positionOfImage(imageIndex) {
+         for (var i = 0; i < VISUAL_ORDER.length; i++) {
+           if (VISUAL_ORDER[i] === imageIndex) return i;
+         }
+         return -1;
+       }
+       function renderGrid() {
+         var columns = getColumns();
+         var layoutType = decideLayoutType();
+         currentColumns = columns;
+         setCellSize();
+         galleryEl.innerHTML = '';
+         if (layoutType === 'uniform-square') {
+           renderUniform();
+         } else {
+           renderPatterned(columns);
+         }
+         buildVisualOrder();
+       }
+       function waitForFirstImages(count, timeoutMs) {
+         var imgs = galleryEl.querySelectorAll('.cell img');
+         var max = Math.min(count, imgs.length);
+         if (max <= 0) return Promise.resolve();
+         var pending = [];
+         for (var i = 0; i < max; i++) {
+           (function (img) {
+             if (img.complete && img.naturalWidth > 0) return;
+             pending.push(new Promise(function (resolve) {
+               var done = function () {
+                 img.removeEventListener('load', done);
+                 img.removeEventListener('error', done);
+                 resolve();
+               };
+               img.addEventListener('load', done);
+               img.addEventListener('error', done);
+             }));
+           })(imgs[i]);
+         }
+         if (!pending.length) return Promise.resolve();
+         var loadAll = Promise.all(pending);
+         if (!timeoutMs) return loadAll;
+         var timeout = new Promise(function (resolve) {
+           setTimeout(resolve, timeoutMs);
+         });
+         return Promise.race([loadAll, timeout]);
+       }
+       function activateSections() {
+         if (sectionObserver) {
+           sectionObserver.disconnect();
+           sectionObserver = null;
+         }
+         var sections = galleryEl.querySelectorAll('.section');
+         if (!sections.length) return;
+         if (!('IntersectionObserver' in window)) {
+           sections.forEach(function (s) {
+             s.classList.add('in');
+             settleSectionAfter(s, 0);
+           });
+           return;
+         }
+         sectionObserver = new IntersectionObserver(function (entries) {
+           entries.forEach(function (entry) {
+             if (!entry.isIntersecting) return;
+             var section = entry.target;
+             section.classList.add('in');
+             var cells = section.querySelectorAll('.cell').length;
+             settleSectionAfter(section, cells);
+             sectionObserver.unobserve(section);
+           });
+         }, { rootMargin: '0px 0px -6% 0px', threshold: .03 });
+         requestAnimationFrame(function () {
+           requestAnimationFrame(function () {
+             sections.forEach(function (s) { sectionObserver.observe(s); });
+           });
+         });
+       }
+       function settleSectionAfter(section, cellCount) {
+         if (cellCount <= 0) return;
+         var delay = (cellCount - 1) * CELL_DELAY_MS;
+         var total = delay + TRANSFORM_MS + SETTLE_BUFFER;
+         setTimeout(function () {
+           var cells = section.querySelectorAll('.cell');
+           for (var i = 0; i < cells.length; i++) {
+             cells[i].classList.add('settled');
+           }
+         }, total);
+       }
+       /* ==========================================================
+          LIGHTBOX
+          ========================================================== */
+       function renderCounter() {
+         var current = String(currentIndex + 1).padStart(2, '0');
+         var total = String(VISUAL_ORDER.length).padStart(2, '0');
+         lbCounter.innerHTML =
+           current + '<span class="separator">/</span>' + total;
+       }
+       function updateNavButtons() {
+         var atStart = currentIndex <= 0;
+         var atEnd = currentIndex >= VISUAL_ORDER.length - 1;
+         lbPrev.classList.toggle('hidden', atStart);
+         lbNext.classList.toggle('hidden', atEnd);
+       }
+       function preloadImageAt(index) {
+         if (index < 0 || index >= VISUAL_ORDER.length) return;
+         var im = IMAGES[VISUAL_ORDER[index]];
+         var probe = new Image();
+         probe.onerror = function () {
+           if (im.localUrl) {
+             var fallback = new Image();
+             fallback.src = im.localUrl;
+           }
+         };
+         probe.src = im.localUrl;
+       }
+       function preloadNeighborsAtPos(pos) {
+         preloadImageAt(pos - 1);
+         preloadImageAt(pos + 1);
+       }
+       function resetLeaveState() {
+         lbImage.style.transition = 'none';
+         lightbox.classList.remove('leaving-left', 'leaving-right');
+         void lbImage.offsetWidth;
+         lbImage.style.transition = '';
+       }
+       function openLightbox(imageIndex) {
+         var pos = positionOfImage(imageIndex);
+         if (pos < 0) pos = 0;
+         currentIndex = pos;
+         pendingPos = pos;
+         renderCounter();
+         updateNavButtons();
+         resetLeaveState();
+         lightbox.classList.remove('ready');
+         lightbox.classList.add('on');
+         document.body.style.overflow = 'hidden';
+         scheduleLbLoader();
+         var imgIdx = VISUAL_ORDER[pos];
+         var imageData = IMAGES[imgIdx];
+         var requestedPos = pos;
+         var settled = false;
+         function applyImage(src) {
+           if (settled) return;
+           if (pendingPos !== requestedPos) return;
+           settled = true;
+           lbImage.src = src;
+           requestAnimationFrame(function () {
+             requestAnimationFrame(function () {
+               if (pendingPos !== requestedPos) return;
+               lightbox.classList.add('ready');
+               cancelLbLoader();
+             });
+           });
+         }
+         var loader = new Image();
+         loader.onload = function () { applyImage(loader.src); };
+         loader.onerror = function () { applyImage(imageData.localUrl); };
+         loader.src = imageData.localUrl;
+         if (loader.complete && loader.naturalWidth > 0) {
+           applyImage(loader.src);
+         }
+         preloadNeighborsAtPos(pos);
+       }
+       function closeLightbox() {
+         cancelLbLoader();
+         if (!lightbox.classList.contains('on')) return;
+         pendingPos = null;
+         lightbox.classList.remove('ready');
+         lightbox.classList.remove('leaving-left', 'leaving-right');
+         lightbox.classList.remove('on');
+         document.body.style.overflow = '';
+       }
+       function navigate(direction) {
+         if (navigationBusy) return;
+         var nextPos = currentIndex + direction;
+         if (nextPos < 0 || nextPos >= VISUAL_ORDER.length) return;
+         navigationBusy = true;
+         currentIndex = nextPos;
+         pendingPos = nextPos;
+         renderCounter();
+         updateNavButtons();
+         scheduleLbLoader();
+         var imgIdx = VISUAL_ORDER[nextPos];
+         var imageData = IMAGES[imgIdx];
+         var url = imageData.localUrl;
+         var startedAt = performance.now();
+         var done = false;
+         lightbox.classList.remove('leaving-left', 'leaving-right');
+         lightbox.classList.remove('ready');
+         lightbox.classList.add(direction > 0 ? 'leaving-left' : 'leaving-right');
+         var preload = new Image();
+         function finish() {
+           if (done) return;
+           done = true;
+           var elapsed = performance.now() - startedAt;
+           var wait = Math.max(0, NAV_MIN_MS - elapsed);
+           setTimeout(function () {
+             resetLeaveState();
+             lbImage.src = url;
+             preloadNeighborsAtPos(nextPos);
+             requestAnimationFrame(function () {
+               requestAnimationFrame(function () {
+                 lightbox.classList.add('ready');
+                 cancelLbLoader();
+                 setTimeout(function () { navigationBusy = false; }, 320);
+               });
+             });
+           }, wait);
+         }
+         preload.onload = finish;
+         preload.onerror = finish;
+         preload.src = url;
+         if (preload.complete && preload.naturalWidth > 0) finish();
+       }
+       /* ==========================================================
+          VIEWPORT INSET
+          ========================================================== */
+       var lastBrowserInset = null;
+       function updateViewportInset() {
+         var docEl = document.documentElement;
+         var browserInset = 0;
+         if (docEl && typeof docEl.clientHeight === 'number') {
+           browserInset = Math.max(0, window.innerHeight - docEl.clientHeight);
+         }
+         var value = browserInset + 'px';
+         if (value === lastBrowserInset) return;
+         lastBrowserInset = value;
+         document.documentElement.style.setProperty('--browser-inset', value);
+       }
+       /* ==========================================================
+          BOOT-ИНДИКАТОР
+          ========================================================== */
+       function showBoot() {
+         bootEl.classList.add('snap');
+         bootEl.classList.remove('off');
+         void bootEl.offsetWidth;
+         bootEl.classList.remove('snap');
+       }
+       function hideBoot() { bootEl.classList.add('off'); }
+       /* ==========================================================
+          ЗАГРУЗКА ГАЛЕРЕИ
+          ========================================================== */
+       function fetchGallery(key) {
+         return new Promise(function (resolve) {
+           if (!manifestReady) {
+             loadManifest().then(function () { resolve(fetchGallery(key)); });
+             return;
+           }
+           if (key === 'family') {
+             resolve([]);
+             return;
+           }
+           var files = (MANIFEST && MANIFEST[key]) || [];
+           var arr = filesToImages(key, files);
+           arr.sort(function (a, b) {
+             return a.name.localeCompare(b.name, undefined, {
+               numeric: true,
+               sensitivity: 'base'
+             });
+           });
+           resolve(arr);
+         });
+       }
+       function buildOrientationsFromCache(arr, cached) {
+         return arr.map(function (img) {
+           var v = cached && cached[img.id];
+           return (v === 'H' || v === 'V' || v === 'S') ? v : undefined;
+         });
+       }
+       /* ==========================================================
+          ПОКАЗ VIEW
+          ========================================================== */
+       function showHome() {
+         closeLightbox();
+         resetBio();
+         activeKey = null;
+         hideBoot();
+         viewGallery.hidden = true;
+         viewHome.hidden = false;
+         window.scrollTo(0, 0);
+         fabTop.classList.add('hidden');
+         if (!wordSettled) {
+           requestAnimationFrame(centerWord);
+         }
+       }
+       function renderEmpty(message) {
+         galleryEl.innerHTML =
+           '<div class="empty">' + (message || 'В этой папке пока нет изображений') + '</div>';
+       }
+       function showGallery(key, title) {
+         var startedAt = performance.now();
+         closeLightbox();
+         showBoot();
+         viewHome.hidden = true;
+         viewGallery.hidden = false;
+         galleryCategoryEl.textContent = 'Архив / ' + title;
+         window.scrollTo(0, 0);
+         fabTop.classList.add('hidden');
+         activeKey = key;
+         function finalizeHide() {
+           var elapsed = performance.now() - startedAt;
+           var remain = Math.max(0, BOOT_MIN_MS - elapsed);
+           setTimeout(function () {
+             if (activeKey !== key) return;
+             hideBoot();
+             activateSections();
+           }, remain);
+         }
+         if (CACHE[key]) {
+           var cachedArr = CACHE[key];
+           IMAGES = cachedArr;
+           if (!cachedArr.length) {
+             finalizeHide();
+             setTimeout(function () {
+               if (activeKey !== key) return;
+               renderEmpty();
+             }, BOOT_MIN_MS);
+             return;
+           }
+           var cachedOris = loadOrientationCache(key);
+           orientations = buildOrientationsFromCache(cachedArr, cachedOris);
+           renderGrid();
+           finalizeHide();
+           return;
+         }
+         galleryEl.innerHTML = '';
+         fetchGallery(key).then(function (arr) {
+           if (activeKey !== key) return;
+           arr = Array.isArray(arr) ? arr : [];
+           CACHE[key] = arr;
+           if (!arr.length) {
+             IMAGES = [];
+             finalizeHide();
+             setTimeout(function () {
+               if (activeKey !== key) return;
+               renderEmpty();
+             }, BOOT_MIN_MS);
+             return;
+           }
+           IMAGES = arr;
+           var cached = loadOrientationCache(key);
+           orientations = buildOrientationsFromCache(arr, cached);
+           renderGrid();
+           var eager = getEagerCount();
+           waitForFirstImages(eager, 6000).then(function () {
+             if (activeKey !== key) return;
+             finalizeHide();
+           });
+         }).catch(function (err) {
+           console.error('fetchGallery error:', err);
+           if (activeKey !== key) return;
+           IMAGES = [];
+           finalizeHide();
+           setTimeout(function () {
+             if (activeKey !== key) return;
+             renderEmpty('Ошибка загрузки галереи');
+           }, BOOT_MIN_MS);
+         });
+       }
+       /* ==========================================================
+          РОУТЕР
+          ========================================================== */
+       function getHash() {
+         var h = location.hash.replace(/^#/, '');
+         return h || '/';
+       }
+       function route() {
+         var hash = getHash();
+         var r = ROUTES[hash] || ROUTES['/'];
+         if (r.view === 'home') {
+           showHome();
+         } else {
+           showGallery(r.key, r.title);
+         }
+       }
+       window.addEventListener('hashchange', route);
+       /* ==========================================================
+          КНОПКИ ГЛАВНОЙ → hash
+          ========================================================== */
+       document.querySelectorAll('.glass-btn').forEach(function (btn) {
+         btn.addEventListener('click', function (ev) {
+           ev.preventDefault();
+           ev.stopPropagation();
+           var key = btn.dataset.gallery;
+           if (key) location.hash = '#/' + key;
+         });
+       });
+       /* ==========================================================
+          КНОПКА «‹» → hash на главную
+          ========================================================== */
+       document.getElementById('fabHome').addEventListener('click', function (ev) {
+         ev.preventDefault();
+         ev.stopPropagation();
+         location.hash = '#/';
+       });
+       /* ==========================================================
+          FAB «▴»
+          ========================================================== */
+       fabTop.addEventListener('click', function () {
+         window.scrollTo({ top: 0, behavior: 'smooth' });
+       });
+       window.addEventListener('scroll', function () {
+         if (window.scrollY > 400) fabTop.classList.remove('hidden');
+         else fabTop.classList.add('hidden');
+       }, { passive: true });
+       /* ==========================================================
+          PRESSED STATE
+          ========================================================== */
+       function clearPressedButtons() {
+         document.querySelectorAll('button.pressed').forEach(function (b) {
+           b.classList.remove('pressed');
+         });
+       }
+       document.addEventListener('pointerdown', function (ev) {
+         var btn = ev.target.closest && ev.target.closest('button');
+         if (btn && !btn.disabled) btn.classList.add('pressed');
+       }, true);
+       document.addEventListener('pointerup', clearPressedButtons, true);
+       document.addEventListener('pointercancel', clearPressedButtons, true);
+       window.addEventListener('blur', clearPressedButtons);
+       document.addEventListener('visibilitychange', clearPressedButtons);
+       /* ==========================================================
+          LIGHTBOX — события
+          ========================================================== */
+       document.getElementById('lbClose').addEventListener('click', function (ev) {
+         ev.stopPropagation(); closeLightbox();
+       });
+       lbPrev.addEventListener('click', function (ev) {
+         ev.stopPropagation(); navigate(-1);
+       });
+       lbNext.addEventListener('click', function (ev) {
+         ev.stopPropagation(); navigate(1);
+       });
+       lightbox.addEventListener('click', function (ev) {
+         if (ev.target === lightbox || ev.target === lbImage) closeLightbox();
+       });
+       document.addEventListener('keydown', function (ev) {
+         if (!lightbox.classList.contains('on')) return;
+         if (ev.key === 'Escape') closeLightbox();
+         if (ev.key === 'ArrowLeft') navigate(-1);
+         if (ev.key === 'ArrowRight') navigate(1);
+       });
+       var touchStartX = 0;
+       lightbox.addEventListener('touchstart', function (ev) {
+         touchStartX = ev.changedTouches[0].screenX;
+       }, { passive: true });
+       lightbox.addEventListener('touchend', function (ev) {
+         var diff = touchStartX - ev.changedTouches[0].screenX;
+         if (Math.abs(diff) > 55 && !navigationBusy) {
+           navigate(diff > 0 ? 1 : -1);
+         }
+       }, { passive: true });
+       /* ==========================================================
+          RESIZE / VIEWPORT
+          ========================================================== */
+       updateViewportInset();
+       if (window.visualViewport) {
+         window.visualViewport.addEventListener('resize', updateViewportInset, { passive: true });
+         window.visualViewport.addEventListener('scroll', updateViewportInset, { passive: true });
+       }
+       window.addEventListener('resize', function () {
+         clearTimeout(resizeTimer);
+         resizeTimer = setTimeout(function () {
+           if (!viewGallery.hidden) {
+             var columns = getColumns();
+             if (columns !== currentColumns) {
+               renderGrid();
+               activateSections();
+             } else {
+               setCellSize();
+             }
+           }
+           updateViewportInset();
+         }, 150);
+       }, { passive: true });
+       if ('ResizeObserver' in window) {
+         var ro = new ResizeObserver(function () {
+           if (viewGallery.hidden) return;
+           var columns = getColumns();
+           if (columns !== currentColumns) {
+             renderGrid();
+             activateSections();
+           } else {
+             setCellSize();
+           }
+         });
+         ro.observe(galleryEl);
+       }
+       /* ==========================================================
+          СТАРТ
+          ========================================================== */
+       function init() {
+         var initial = ROUTES[getHash()] || ROUTES['/'];
+         if (initial.view === 'gallery') revealBody();
+         loadManifest().then(function () {
+           bootHome();
+           route();
+         });
+       }
+       if (document.readyState === 'loading') {
+         document.addEventListener('DOMContentLoaded', init);
+       } else {
+         init();
+       }
+     })();
+     </script>
+   </body>
+   </html>
