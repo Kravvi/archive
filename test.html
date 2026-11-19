@@ -596,6 +596,21 @@
          filter: none;
          will-change: auto;
        }
+       /* Заголовок экрана — в языке служебных подписей сайта
+          (моноширинный, разряженный, приглушённый), по центру.
+          text-indent компенсирует трекинг для оптической центровки. */
+       .bio-title {
+         margin: 0 0 30px;
+         font-family: monospace;
+         font-size: 11px;
+         font-weight: 400;
+         line-height: 1.5;
+         letter-spacing: .3em;
+         text-indent: .3em;
+         text-transform: uppercase;
+         color: var(--muted);
+         text-align: center;
+       }
        /* Тело био — по ширине, с переносами (lang="ru"). */
        .bio-p {
          font-size: clamp(14px, 1.35vw, 17px);
@@ -673,10 +688,15 @@
           всего, что тянет внимание: обводки, тени, градиента,
           цветного отсвета и «объёма». Остался еле заметный тон и
           лёгкое размытие фона. Края совпадают с краями абзацев.
-          Текст приглушён и мельче основного; кнопка «Открыть» —
-          всегда в правом нижнем углу, в покое тихая, оживает
-          только при наведении (та же стеклянная форма, что и
-          остальные кнопки сайта).
+          Текст приглушён и мельче основного.
+          Текст и кнопка «Открыть» стоят в ОДНУ строку, пока
+          помещаются: текст слева, кнопка справа, оба выровнены
+          по центру строки; высота блока (и его фон) подстраивается
+          под занятую область — одной строкой. Если ширины не
+          хватает, кнопка переносится на следующую строку и
+          прижимается вправо (прежнее поведение «внизу справа»).
+          Кнопка в покое тихая, оживает только при наведении
+          (та же стеклянная форма, что и остальные кнопки сайта).
           ============================================================ */
        .bio-contact-card {
          position: relative;
@@ -684,8 +704,9 @@
          margin: 44px 0 0;
          padding: 20px 24px;
          display: flex;
-         flex-direction: column;
-         align-items: stretch;
+         flex-direction: row;
+         flex-wrap: wrap;
+         align-items: center;
          gap: 16px;
          text-align: left;
          border-radius: 16px;
@@ -697,6 +718,8 @@
        }
        .bio-contact-text {
          margin: 0;
+         flex: 0 1 auto;
+         min-width: 0;
          font-size: clamp(12px, .95vw, 14px);
          line-height: 1.65;
          letter-spacing: .02em;
@@ -704,9 +727,13 @@
          text-align: left;
        }
        /* Кнопка в покое — тише основного текста; при наведении
-          возвращается к обычному поведению кнопок сайта. */
+          возвращается к обычному поведению кнопок сайта.
+          margin-left:auto прижимает её вправо и в одну строку,
+          и после переноса; align-items:center даёт ровное
+          вертикальное выравнивание с текстом. */
        .bio-contact-card .bio-card-btn {
-         align-self: flex-end;
+         align-self: center;
+         margin-left: auto;
          flex-shrink: 0;
          padding: 9px 22px;
          font-size: clamp(12px, .9vw, 15px);
@@ -807,12 +834,17 @@
              var(--bio-gutter) + env(safe-area-inset-top, 0px)
            );
          }
+         .bio-title {
+           font-size: 10px;
+           margin-bottom: 24px;
+         }
          /* Текст био на телефоне — на 2px мельче (14px → 12px). */
          .bio-p {
            font-size: clamp(12px, 1.35vw, 15px);
            line-height: 1.75;
          }
-         /* Контактный блок: те же края, что у текста био. */
+         /* Контактный блок: те же края, что у текста био;
+            одна строка, если текст и кнопка помещаются. */
          .bio-contact-card {
            gap: 14px;
            margin-top: 36px;
@@ -1313,23 +1345,24 @@
          <div class="bio-dim"></div>
          <div class="bio-scroll" id="bioScroll">
            <div class="bio-inner">
-             <p class="bio-block bio-p" style="--d:100">
+             <h2 class="bio-block bio-title" style="--d:100">Об авторе</h2>
+             <p class="bio-block bio-p" style="--d:200">
                <strong>Александр Кравви</strong> — графический и ui/ux дизайнер,
                фотохудожник и ретушер (2015 – 2022 год). На этой странице
                представлено архивное портфолио фоторабот.
              </p>
-             <p class="bio-block bio-p" style="--d:220">
+             <p class="bio-block bio-p" style="--d:300">
                Центральное место в его фотографической практике занимает
                художественный портрет, где классическая эстетика сочетается
                с глубокой авторской постобработкой.
              </p>
-             <p class="bio-block bio-p" style="--d:340">
+             <p class="bio-block bio-p" style="--d:400">
                Визуальные образы нередко дополнялись авторскими стихами,
                которые сейчас можно прочесть в
                <a class="bio-link" href="https://archive.gallery.photo/gallery/thoughts"
                   target="_blank" rel="noopener noreferrer">архиве мыслей</a>
              </p>
-             <p class="bio-block bio-p" style="--d:460">
+             <p class="bio-block bio-p" style="--d:500">
                Профессиональные достижения автора отмечены на международном
                уровне: по итогам престижной фотопремии <strong>35AWARDS</strong>
                (<a class="bio-link" href="https://35awards.com/winners2016/country/17/"
@@ -1341,7 +1374,7 @@
                <a class="bio-link" href="https://35awards.com/ru/winners2017/country/city/1312/"
                   target="_blank" rel="noopener noreferrer">Гомеля</a>.
              </p>
-             <p class="bio-block bio-p" style="--d:580">
+             <p class="bio-block bio-p" style="--d:600">
                Частью его карьеры стала работа в фэшн-индустрии — сотрудничество
                с модельными агентствами, преподавание фотопозирования и
                фотопластики. Наряду с этим Александр активно работал в
@@ -1357,8 +1390,8 @@
                проектировании и создании цифровых продуктов, применяя
                многолетний художественный опыт.</em>
              </p>
-             <!-- Сноска: тихий блок, кнопка в правом нижнем углу -->
-             <div class="bio-block bio-contact-card" style="--d:880">
+             <!-- Сноска: текст и кнопка в одну строку, если помещаются -->
+             <div class="bio-block bio-contact-card" style="--d:860">
                <p class="bio-contact-text">Сайт Александра</p>
                <a class="bio-card-btn"
                   href="https://kravvi.github.io"
