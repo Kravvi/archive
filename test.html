@@ -596,22 +596,13 @@
          filter: none;
          will-change: auto;
        }
-       /* Заголовок экрана — в языке служебных подписей сайта
-          (моноширинный, разряженный, приглушённый), по центру.
-          text-indent компенсирует трекинг для оптической центровки. */
-       .bio-title {
-         margin: 0 0 30px;
-         font-family: monospace;
-         font-size: 11px;
-         font-weight: 400;
-         line-height: 1.5;
-         letter-spacing: .3em;
-         text-indent: .3em;
-         text-transform: uppercase;
-         color: var(--muted);
-         text-align: center;
-       }
-       /* Тело био — по ширине, с переносами (lang="ru"). */
+       /* Тело био — по ширине (justify), переносы сведены к минимуму.
+          text-wrap: pretty не оставляет последнюю строку коротким
+          «обрубком» — именно он читался как выравнивание по левому
+          краю. text-align-last: left не растягивает последнюю строку
+          на всю ширину (иначе между словами возникали бы дыры).
+          hyphenate-limit-chars 8 4 3: перенос только у длинных слов,
+          прочее вытягивается межсловными пробелами без разрывов. */
        .bio-p {
          font-size: clamp(14px, 1.35vw, 17px);
          line-height: 1.8;
@@ -619,11 +610,13 @@
          color: rgba(255,255,255,.88);
          margin-bottom: 1.35em;
          text-align: justify;
+         text-align-last: left;
          text-justify: inter-word;
+         text-wrap: pretty;
          -webkit-hyphens: auto;
          -moz-hyphens: auto;
          hyphens: auto;
-         hyphenate-limit-chars: 6 3 2;
+         hyphenate-limit-chars: 8 4 3;
        }
        /* Имена, бренды и ссылки не разрываются переносами. */
        .bio-p strong,
@@ -833,10 +826,6 @@
            padding-top: calc(
              var(--bio-gutter) + env(safe-area-inset-top, 0px)
            );
-         }
-         .bio-title {
-           font-size: 10px;
-           margin-bottom: 24px;
          }
          /* Текст био на телефоне — на 2px мельче (14px → 12px). */
          .bio-p {
@@ -1345,24 +1334,23 @@
          <div class="bio-dim"></div>
          <div class="bio-scroll" id="bioScroll">
            <div class="bio-inner">
-             <h2 class="bio-block bio-title" style="--d:100">Об авторе</h2>
-             <p class="bio-block bio-p" style="--d:200">
+             <p class="bio-block bio-p" style="--d:100">
                <strong>Александр Кравви</strong> — графический и ui/ux дизайнер,
                фотохудожник и ретушер (2015 – 2022 год). На этой странице
                представлено архивное портфолио фоторабот.
              </p>
-             <p class="bio-block bio-p" style="--d:300">
+             <p class="bio-block bio-p" style="--d:220">
                Центральное место в его фотографической практике занимает
                художественный портрет, где классическая эстетика сочетается
                с глубокой авторской постобработкой.
              </p>
-             <p class="bio-block bio-p" style="--d:400">
+             <p class="bio-block bio-p" style="--d:340">
                Визуальные образы нередко дополнялись авторскими стихами,
                которые сейчас можно прочесть в
                <a class="bio-link" href="https://archive.gallery.photo/gallery/thoughts"
                   target="_blank" rel="noopener noreferrer">архиве мыслей</a>
              </p>
-             <p class="bio-block bio-p" style="--d:500">
+             <p class="bio-block bio-p" style="--d:460">
                Профессиональные достижения автора отмечены на международном
                уровне: по итогам престижной фотопремии <strong>35AWARDS</strong>
                (<a class="bio-link" href="https://35awards.com/winners2016/country/17/"
@@ -1374,7 +1362,7 @@
                <a class="bio-link" href="https://35awards.com/ru/winners2017/country/city/1312/"
                   target="_blank" rel="noopener noreferrer">Гомеля</a>.
              </p>
-             <p class="bio-block bio-p" style="--d:600">
+             <p class="bio-block bio-p" style="--d:580">
                Частью его карьеры стала работа в фэшн-индустрии — сотрудничество
                с модельными агентствами, преподавание фотопозирования и
                фотопластики. Наряду с этим Александр активно работал в
@@ -1391,7 +1379,7 @@
                многолетний художественный опыт.</em>
              </p>
              <!-- Сноска: текст и кнопка в одну строку, если помещаются -->
-             <div class="bio-block bio-contact-card" style="--d:860">
+             <div class="bio-block bio-contact-card" style="--d:880">
                <p class="bio-contact-text">Сайт Александра</p>
                <a class="bio-card-btn"
                   href="https://kravvi.github.io"
@@ -1539,7 +1527,8 @@
              MANIFEST = data || {};
              manifestReady = true;
              return MANIFEST;
-           }).catch(function (err) {
+           })
+           .catch(function (err) {
              console.error('Не удалось загрузить manifest.json:', err);
              MANIFEST = {};
              manifestReady = true;
