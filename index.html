@@ -1719,11 +1719,14 @@
         var buttonsEl   = document.getElementById('buttonsContainer');
         /* ==========================================================
            HOME — тайминги и состояние
+           Анимация слова «АРХИВ» идёт ровно до тех пор, пока КАЖДОЕ
+           изображение карусели (включая дубли) не загрузится полностью.
+           Таймера принудительной остановки больше нет.
            ========================================================== */
         var LOOP_MS           = 3600;
         var RETURN_MS         = 1300;
-        var MAX_LOAD_WAIT_MS  = 20000;
         var LETTER_STAGGER_MS = 600;
+        var DECODE_GRACE_MS   = 2000;
         var homeBooted      = false;
         var wordSettled     = false;
         var settleScheduled = false;
@@ -1814,13 +1817,15 @@
           for (var c = 0; c < COLUMNS; c++) {
             totalImages += (chunks[c] || []).length * 2;
           }
-          if (totalImages === 0) totalImages = 1;
           var allLoadedFlag = false;
           function onAllLoaded() {
             if (allLoadedFlag) return;
             allLoadedFlag = true;
             trySettle();
           }
+          /* Единственный триггер settle — полная загрузка всех картинок.
+             Пустой набор (нечего ждать) не должен вечить анимацию. */
+          if (totalImages === 0) onAllLoaded();
           for (var col = 0; col < COLUMNS; col++) {
             var columnImages = chunks[col] || [];
             var doubled = columnImages.concat(columnImages);
@@ -1844,7 +1849,16 @@
                 loadedImages++;
                 if (loadedImages >= totalImages) onAllLoaded();
               };
-              img.onload = done;
+              /* onload = файл скачан целиком. Дополнительно ждём
+                 декодирование, чтобы проявление карусели было чистым.
+                 DECODE_GRACE_MS — страховка от зависшего decode():
+                 файл к этому моменту уже загружен полностью. */
+              var loaded = function () {
+                if (!img.decode) { done(); return; }
+                img.decode().then(done, done);
+                setTimeout(done, DECODE_GRACE_MS);
+              };
+              img.onload = loaded;
               img.onerror = function () {
                 if (img.dataset.retried === '1') {
                   done();
@@ -1870,7 +1884,10 @@
             columnDiv.appendChild(contentDiv);
             bgCarousel.appendChild(columnDiv);
           }
-          setTimeout(onAllLoaded, MAX_LOAD_WAIT_MS);
+          /* Таймаут принудительного settle удалён намеренно:
+             слово «АРХИВ» анимируется, пока идёт загрузка, сколько бы
+             она ни длилась. Остановка — только по факту готовности
+             всех изображений (успех либо окончательная ошибка файла). */
         }
         async function bootHome() {
           if (homeBooted) return;
