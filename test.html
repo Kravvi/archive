@@ -897,8 +897,10 @@
          строки. Поэтому она НИКОГДА не участвует в разбиении строк
          первого абзаца: слова («дизайнер» и любые другие) стоят
          одинаково свёрнуто и раскрыто, без единого перескока.
-         text-wrap:pretty у текста сохранён. Нулевой якорь в конце
-         текста служит точкой отсчёта для позиции надписи. */
+         text-wrap:pretty у текста сохранён.
+         Два нулевых якоря — в конце текста и внутри надписи —
+         задают точную базовую линию: надпись садится ровно на
+         свою строку, без сдвига на полуинтерлиньяж вниз. */
       .bio-inner > .bio-p {
         position: relative;
       }
@@ -1450,7 +1452,7 @@
             фотохудожник и ретушер (2015 – 2022 год). На этой странице
             представлено архивное портфолио фоторабот.<span class="bio-more-anchor" id="bioMoreAnchor"></span>
             <button class="bio-more-toggle" id="bioMoreToggle" type="button"
-                    aria-controls="bioMore" aria-expanded="false" hidden>Читать полностью…</button>
+                    aria-controls="bioMore" aria-expanded="false" hidden><span class="bio-more-anchor" id="bioMoreBtnAnchor"></span>Читать полностью…</button>
           </p>
           <!-- Остальной текст: на телефоне свёрнут до нажатия
                «Читать полностью…», на десктопе всегда виден. -->
@@ -1971,6 +1973,7 @@
     var bioMore = document.getElementById('bioMore');
     var bioMoreToggle = document.getElementById('bioMoreToggle');
     var bioMoreAnchor = document.getElementById('bioMoreAnchor');
+    var bioMoreBtnAnchor = document.getElementById('bioMoreBtnAnchor');
     var bioFirstP = bioMoreToggle.parentNode;
     var bioNarrow = window.matchMedia('(max-width:700px)');
     var bioCalm = window.matchMedia('(prefers-reduced-motion:reduce)');
@@ -2002,7 +2005,12 @@
     /* Надпись стоит ВНЕ потока текста (absolute) и не влияет на
        разбиение строк. Ставим её в конец последней строки по
        нулевому якорю; если не помещается — на следующую строку,
-       резервируя её высоту нижним отступом абзаца. */
+       резервируя её высоту нижним отступом абзаца.
+       Вертикаль доводится по базовой линии: нулевой якорь внутри
+       надписи должен совпасть с нулевым якорем в конце текста.
+       Без этой доводки надпись садится ниже строки ровно на
+       полуинтерлиньяж (разница между line-height и высотой
+       шрифтового контент-бокса). */
     function placeBioMoreToggle() {
       if (!bioNarrow.matches || bioMoreOpen) {
         bioFirstP.style.paddingBottom = '';
@@ -2017,16 +2025,27 @@
       var gap = Math.max(3, Math.round((parseFloat(cs.fontSize) || 12) * 0.28));
       var tw = bioMoreToggle.offsetWidth;
       var left = aRect.right - pRect.left + gap;
-      var top = aRect.top - pRect.top;
-      if (left + tw > pRect.width) {
+      var wrapped = left + tw > pRect.width;
+      var top;
+      if (wrapped) {
         left = 0;
         top = aRect.top - pRect.top + lh;
         bioFirstP.style.paddingBottom = lh + 'px';
       } else {
+        top = aRect.top - pRect.top;
         bioFirstP.style.paddingBottom = '';
       }
       bioMoreToggle.style.left = left + 'px';
       bioMoreToggle.style.top = top + 'px';
+      /* Оба замера — после записи стилей, в одном таске:
+         раскладка уже пересчитана (резерв отступа мог сдвинуть
+         центровку), поэтому якоря сравниваются в одной системе. */
+      var textTop = bioMoreAnchor.getBoundingClientRect().top;
+      var btnTop = bioMoreBtnAnchor.getBoundingClientRect().top;
+      var delta = (textTop + (wrapped ? lh : 0)) - btnTop;
+      if (Math.abs(delta) > 0.01) {
+        bioMoreToggle.style.top = (top + delta) + 'px';
+      }
     }
     /* Мгновенная синхронизация состояния, без анимации:
        старт, смена брейкпоинта, сброс после закрытия БИО. */
@@ -2163,6 +2182,7 @@
       bioScroll.scrollTop = 0;
       bioTopGuardAt = performance.now();
       bioScreen.classList.remove('settled');
+      placeBioMoreToggle();
       // Родитель — только transform. Blur на листьях (.bio-out).
       mainGroup.style.transition =
         'transform var(--hb-group) cubic-bezier(0.22, 1, 0.36, 1)';
@@ -3008,6 +3028,7 @@
       if (!wordSettled) {
         requestAnimationFrame(centerWord);
       }
+      requestAnimationFrame(placeBioMoreToggle);
     }
     function renderEmpty(message) {
       galleryEl.innerHTML =
