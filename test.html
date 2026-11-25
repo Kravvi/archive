@@ -892,15 +892,22 @@
         font-size: clamp(12px, 1.35vw, 15px);
         line-height: 1.75;
       }
-      /* Первый абзац несёт инлайн-надпись «Читать полностью…».
-         Набираем его обычным (жадным) разбиением строк, а не
-         text-wrap:pretty: pretty пере-оптимизирует разбиение,
-         когда надпись уходит из потока, и слово перепрыгивает
-         на другую строку. Жадное разбиение зависит только от
-         текста, стоящего ДО надписи, поэтому строки первого
-         абзаца идентичны свёрнуто и раскрыто — без рывков. */
+      /* Надпись «Читать полностью…» выведена из потока текста
+         (position:absolute) и ставится скриптом в конец последней
+         строки. Поэтому она НИКОГДА не участвует в разбиении строк
+         первого абзаца: слова («дизайнер» и любые другие) стоят
+         одинаково свёрнуто и раскрыто, без единого перескока.
+         text-wrap:pretty у текста сохранён. Нулевой якорь в конце
+         текста служит точкой отсчёта для позиции надписи. */
       .bio-inner > .bio-p {
-        text-wrap: normal;
+        position: relative;
+      }
+      .bio-more-anchor {
+        display: inline;
+        width: 0;
+      }
+      .bio-more-toggle {
+        position: absolute;
       }
       /* Контейнер остального текста. Без класса bio-collapsed
          (нет JS / десктоп) он не ограничен — текст виден весь. */
@@ -1441,7 +1448,7 @@
           <p class="bio-block bio-p" style="--d:100">
             <strong>Александр Кравви</strong> — графический и ui/ux дизайнер,
             фотохудожник и ретушер (2015 – 2022 год). На этой странице
-            представлено архивное портфолио фоторабот.
+            представлено архивное портфолио фоторабот.<span class="bio-more-anchor" id="bioMoreAnchor"></span>
             <button class="bio-more-toggle" id="bioMoreToggle" type="button"
                     aria-controls="bioMore" aria-expanded="false" hidden>Читать полностью…</button>
           </p>
@@ -1963,6 +1970,7 @@
        ========================================================== */
     var bioMore = document.getElementById('bioMore');
     var bioMoreToggle = document.getElementById('bioMoreToggle');
+    var bioMoreAnchor = document.getElementById('bioMoreAnchor');
     var bioFirstP = bioMoreToggle.parentNode;
     var bioNarrow = window.matchMedia('(max-width:700px)');
     var bioCalm = window.matchMedia('(prefers-reduced-motion:reduce)');
@@ -1991,12 +1999,41 @@
         bioMore.setAttribute('aria-hidden', 'false');
       }
     }
+    /* Надпись стоит ВНЕ потока текста (absolute) и не влияет на
+       разбиение строк. Ставим её в конец последней строки по
+       нулевому якорю; если не помещается — на следующую строку,
+       резервируя её высоту нижним отступом абзаца. */
+    function placeBioMoreToggle() {
+      if (!bioNarrow.matches || bioMoreOpen) {
+        bioFirstP.style.paddingBottom = '';
+        return;
+      }
+      if (bioMoreToggle.hidden) return;
+      var pRect = bioFirstP.getBoundingClientRect();
+      var aRect = bioMoreAnchor.getBoundingClientRect();
+      if (!pRect.width) return;
+      var cs = getComputedStyle(bioFirstP);
+      var lh = parseFloat(cs.lineHeight) || 21;
+      var gap = Math.max(3, Math.round((parseFloat(cs.fontSize) || 12) * 0.28));
+      var tw = bioMoreToggle.offsetWidth;
+      var left = aRect.right - pRect.left + gap;
+      var top = aRect.top - pRect.top;
+      if (left + tw > pRect.width) {
+        left = 0;
+        top = aRect.top - pRect.top + lh;
+        bioFirstP.style.paddingBottom = lh + 'px';
+      } else {
+        bioFirstP.style.paddingBottom = '';
+      }
+      bioMoreToggle.style.left = left + 'px';
+      bioMoreToggle.style.top = top + 'px';
+    }
     /* Мгновенная синхронизация состояния, без анимации:
        старт, смена брейкпоинта, сброс после закрытия БИО. */
     function applyBioMoreState() {
       clearBioMoreTimers();
       if (bioReserveAnim) { bioReserveAnim.cancel(); bioReserveAnim = null; }
-      bioFirstP.style.minHeight = '';
+      bioFirstP.style.paddingBottom = '';
       bioMoreToggle.style.opacity = '';
       bioMore.style.transition = 'none';
       if (!bioNarrow.matches) {
@@ -2019,6 +2056,7 @@
       }
       void bioMore.offsetHeight;
       bioMore.style.transition = '';
+      placeBioMoreToggle();
     }
     function resetBioMore() {
       bioMoreOpen = false;
@@ -2029,21 +2067,9 @@
       bioMoreOpen = true;
       clearBioMoreTimers();
       var dur = bioMoreDur();
-      /* Рывок первого абзаца возникал, когда надпись «Читать
-         полностью…» занимала отдельную строку: её удаление
-         мгновенно уменьшало абзац, и центровка (margin:auto)
-         дёргала весь блок. Меряем высоту с надписью и без неё;
-         разницу удерживаем min-height и плавно схлопываем
-         синхронно с раскрытием текста. Сама надпись сначала
-         гаснет по opacity, не меняя раскладку. Строки текста
-         при этом не пере-разбиваются: у первого абзаца на
-         телефоне стоит text-wrap:normal (жадное разбиение). */
-      var hWith = bioFirstP.getBoundingClientRect().height;
-      bioMoreToggle.hidden = true;
-      var hWithout = bioFirstP.getBoundingClientRect().height;
-      bioMoreToggle.hidden = false;
-      var reserve = hWith - hWithout;
-      var canReserve = reserve > 0.5 && dur > 0 && !!bioFirstP.animate;
+      /* Зарезервированная строка под надписью (если она переносилась).
+         Текст при этом не пере-разбивается: надпись вне потока. */
+      var reserve = parseFloat(bioFirstP.style.paddingBottom) || 0;
       /* Точная высота раскрытого текста: на кадр снимаем
          ограничение без transition, замеряем, возвращаем 0
          и фиксируем стиль — затем анимируем до замера. */
@@ -2061,19 +2087,18 @@
       var toggleDelay = Math.min(dur, 300);
       bioToggleTimer = setTimeout(function () {
         bioToggleTimer = null;
-        // Надпись уже невидима. Удерживаем её строку min-height,
-        // чтобы удаление из потока не меняло высоту абзаца скачком.
-        if (canReserve) bioFirstP.style.minHeight = hWith + 'px';
         bioMoreToggle.hidden = true;
-        if (canReserve) {
+        if (reserve > 0.5 && dur > 0 && bioFirstP.animate) {
           bioReserveAnim = bioFirstP.animate(
-            [{ minHeight: hWith + 'px' }, { minHeight: hWithout + 'px' }],
+            [{ paddingBottom: reserve + 'px' }, { paddingBottom: '0px' }],
             {
               duration: Math.max(1, dur - toggleDelay),
               easing: 'cubic-bezier(.22,1,.36,1)',
               fill: 'forwards'
             }
           );
+        } else {
+          bioFirstP.style.paddingBottom = '';
         }
       }, toggleDelay);
       // После раскрытия снимаем ограничение — поворот экрана
@@ -2082,7 +2107,7 @@
         bioMoreTimer = null;
         bioMore.style.maxHeight = 'none';
         if (bioReserveAnim) { bioReserveAnim.cancel(); bioReserveAnim = null; }
-        bioFirstP.style.minHeight = '';
+        bioFirstP.style.paddingBottom = '';
       }, dur + 80);
     }
     bioMoreToggle.addEventListener('click', function (ev) {
@@ -3161,6 +3186,7 @@
       window.visualViewport.addEventListener('scroll', updateViewportInset, { passive: true });
     }
     window.addEventListener('resize', function () {
+      if (!viewHome.hidden) placeBioMoreToggle();
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () {
         if (!viewGallery.hidden) {
@@ -3172,6 +3198,7 @@
             setCellSize();
           }
         }
+        if (!viewHome.hidden) placeBioMoreToggle();
         updateViewportInset();
       }, 150);
     }, { passive: true });
